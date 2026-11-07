@@ -25,6 +25,7 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Least
@@ -46,6 +47,13 @@ __all__ = (
     'SoftwareVersion',
     'SoftwareStandard',
     'DeviceSoftware',
+    'LicenseEntitlement',
+    'LicenseAssignment',
+    'SupportContract',
+)
+
+SOFTWARE_LIFECYCLE_FIELDS = (
+    'end_of_maintenance', 'end_of_security_support', 'end_of_support', 'lifecycle_source_url',
 )
 
 # EoL is tracked per hardware MODEL, not per unit: a device type or a module
@@ -468,6 +476,10 @@ class SoftwareVersion(PrimaryModel):
     release_date = models.DateField(
         blank=True, null=True, help_text='Date the vendor released this version'
     )
+    end_of_maintenance = models.DateField(blank=True, null=True)
+    end_of_security_support = models.DateField(blank=True, null=True)
+    end_of_support = models.DateField(blank=True, null=True, db_index=True)
+    lifecycle_source_url = models.URLField(max_length=500, blank=True)
 
     # --- Where the image is, not the image. Images are published to the
     # internal HTTP file server by whatever process builds them; NetBox stores
@@ -874,3 +886,97 @@ class DeviceSoftware(PrimaryModel):
         return timezone.now() - timedelta(
             days=_plugin_settings().get('stale_after_days', 90)
         )
+
+
+class LicenseEntitlement(PrimaryModel):
+    manufacturer = models.ForeignKey('dcim.Manufacturer', on_delete=models.PROTECT)
+    product = models.CharField(max_length=150)
+    reference = models.CharField(
+        max_length=100, help_text='Vendor entitlement ID or support serial. Keep activation keys in the vault.',
+    )
+    vault_reference = models.CharField(
+        max_length=200, blank=True, help_text='Reference to the vault item that holds the activation key.',
+    )
+    seats = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    expires_on = models.DateField(blank=True, null=True, db_index=True)
+    renew_by = models.DateField(blank=True, null=True, db_index=True)
+    source_url = models.URLField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ('manufacturer', 'product', 'reference')
+        constraints = (
+            models.UniqueConstraint(
+                fields=('manufacturer', 'reference'), name='refresh_entitlement_unique_reference',
+            ),
+            models.CheckConstraint(condition=Q(seats__gte=1), name='refresh_entitlement_positive_seats'),
+        )
+
+    def __str__(self):
+        return f'{self.product} ({self.reference})'
+
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_refresh:licenseentitlement', args=[self.pk])
+
+
+class LicenseAssignment(PrimaryModel):
+    entitlement = models.ForeignKey(
+        LicenseEntitlement, on_delete=models.PROTECT, related_name='assignments',
+    )
+    device = models.ForeignKey('dcim.Device', on_delete=models.CASCADE, related_name='license_assignments')
+    seats = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    installed_modules = models.TextField(blank=True)
+    reported_expiration = models.DateField(blank=True, null=True)
+    service_check_date = models.DateField(blank=True, null=True)
+    verified_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ('device', 'entitlement')
+        constraints = (
+            models.UniqueConstraint(fields=('entitlement', 'device'), name='refresh_license_unique_assignment'),
+            models.CheckConstraint(condition=Q(seats__gte=1), name='refresh_assignment_positive_seats'),
+        )
+
+    def __str__(self):
+        return f'{self.entitlement} on {self.device}'
+
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_refresh:licenseassignment', args=[self.pk])
+
+
+class SupportContract(PrimaryModel):
+    provider = models.CharField(max_length=150)
+    reference = models.CharField(max_length=100)
+    service_level = models.CharField(max_length=100, blank=True)
+    starts_on = models.DateField(blank=True, null=True)
+    ends_on = models.DateField(blank=True, null=True, db_index=True)
+    renew_by = models.DateField(blank=True, null=True, db_index=True)
+    source_url = models.URLField(max_length=500, blank=True)
+    devices = models.ManyToManyField('dcim.Device', related_name='support_contracts', blank=True)
+
+    class Meta:
+        ordering = ('provider', 'reference')
+        constraints = (
+            models.UniqueConstraint(fields=('provider', 'reference'), name='refresh_support_unique_reference'),
+            models.CheckConstraint(
+                condition=Q(starts_on__lte=models.F('ends_on')),
+                name='refresh_support_ordered_term',
+                violation_error_message='The end date must be on or after the start date.',
+            ),
+        )
+
+    def __str__(self):
+        return f'{self.provider} {self.reference}'
+
+    def get_absolute_url(self):
+        return reverse('plugins:netbox_refresh:supportcontract', args=[self.pk])
+
+    @property
+    def coverage_status(self):
+        today = timezone.localdate()
+        if self.ends_on and self.ends_on < today:
+            return 'Expired'
+        if self.starts_on and self.starts_on > today:
+            return 'Scheduled'
+        if self.starts_on and self.ends_on:
+            return 'Active'
+        return 'Dates unverified'

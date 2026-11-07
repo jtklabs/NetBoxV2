@@ -2,7 +2,9 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from netbox.plugins import PluginTemplateExtension
 
-from netbox_refresh.models import DeviceSoftware, ModelLifecycle, SoftwareStandard
+from netbox_refresh.models import (
+    DeviceSoftware, LicenseAssignment, ModelLifecycle, SoftwareStandard, SupportContract,
+)
 
 PLUGIN_SETTINGS = settings.PLUGINS_CONFIG.get('netbox_refresh', {})
 
@@ -161,12 +163,36 @@ class PlatformStandardCard(BaseStandardCard):
     models = ['dcim.platform']
 
 
+class DeviceCoverageCard(PluginTemplateExtension):
+    models = ['dcim.device']
+
+    def right_page(self):
+        device = self.context['object']
+        user = self.context['request'].user
+        show_licenses = user.has_perm('netbox_refresh.view_licenseassignment')
+        show_contracts = user.has_perm('netbox_refresh.view_supportcontract')
+        if not (show_licenses or show_contracts):
+            return ''
+        return self.render(
+            'netbox_refresh/inc/device_coverage.html',
+            extra_context={
+                'show_licenses': show_licenses,
+                'show_contracts': show_contracts,
+                'assignments': LicenseAssignment.objects.restrict(user, 'view').filter(
+                    device=device
+                ).select_related('entitlement', 'device'),
+                'contracts': SupportContract.objects.restrict(user, 'view').filter(devices=device),
+            },
+        )
+
+
 template_extensions = (
     DeviceTypeLifecycleCard,
     ModuleTypeLifecycleCard,
     DeviceLifecycleCard,
     ModuleLifecycleCard,
     DeviceSoftwareCard,
+    DeviceCoverageCard,
     DeviceTypeStandardCard,
     PlatformStandardCard,
     ReplacementPricingCard,

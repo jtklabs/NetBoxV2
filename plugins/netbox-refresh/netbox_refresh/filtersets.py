@@ -210,6 +210,7 @@ class SoftwareVersionFilterSet(NetBoxModelFilterSet):
             'id': ['exact'],
             'version': ['exact', 'icontains'],
             'release_date': ['exact', 'gte', 'lte'],
+            'end_of_support': ['exact', 'gte', 'lte'],
             'image_filename': ['exact', 'icontains'],
             'checksum': ['exact'],
         }

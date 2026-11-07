@@ -1,0 +1,44 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+
+{% block title %}Lifecycle Coverage{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <h5 class="card-header">Upcoming Renewals and Support Dates</h5>
+    <div class="card-body d-flex gap-3 flex-wrap">
+      <a href="{% url 'plugins:netbox_refresh:supportcontract_list' %}?renew_by__gte={{ today|date:'Y-m-d' }}&amp;renew_by__lte={{ renewal_cutoff|date:'Y-m-d' }}">Support renewals in 90 days</a>
+      <a href="{% url 'plugins:netbox_refresh:supportcontract_list' %}?ends_on__gte={{ today|date:'Y-m-d' }}&amp;ends_on__lte={{ renewal_cutoff|date:'Y-m-d' }}">Support contracts ending in 90 days</a>
+      {% if perms.netbox_refresh.view_licenseentitlement %}
+        <a href="{% url 'plugins:netbox_refresh:licenseentitlement_list' %}?renew_by__gte={{ today|date:'Y-m-d' }}&amp;renew_by__lte={{ renewal_cutoff|date:'Y-m-d' }}">License renewals in 90 days</a>
+        <a href="{% url 'plugins:netbox_refresh:licenseentitlement_list' %}?expires_on__gte={{ today|date:'Y-m-d' }}&amp;expires_on__lte={{ renewal_cutoff|date:'Y-m-d' }}">Licenses expiring in 90 days</a>
+      {% endif %}
+      {% if perms.netbox_refresh.view_modellifecycle %}
+        <a href="{% url 'plugins:netbox_refresh:refresh_report' %}">Hardware refresh report</a>
+      {% endif %}
+      {% if perms.netbox_refresh.view_softwareversion %}
+        <a href="{% url 'plugins:netbox_refresh:softwareversion_list' %}?end_of_support__lte={{ today|date:'Y-m-d' }}">Software releases at end of support</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h5 class="card-header">Devices Without a Visible Active Support Contract ({{ page.paginator.count }})</h5>
+    <div class="card-body">
+      <p>Coverage requires a recorded start and end date that include today. This list reflects the contracts you can view.</p>
+      <table class="table table-hover">
+        <thead><tr><th>Device</th><th>Site</th></tr></thead>
+        <tbody>
+          {% for device in page %}
+            <tr><td>{{ device|linkify }}</td><td>{{ device.site|linkify }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2">All visible devices have active coverage.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %}
+      <span class="mx-2">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}
+    </div>
+  </div>
+{% endblock %}

@@ -6,6 +6,7 @@ from utilities.api import get_serializer_for_model
 
 from netbox_refresh.choices import SoftwareSourceChoices
 from netbox_refresh.models import (
+    SOFTWARE_LIFECYCLE_FIELDS,
     DeviceSoftware,
     ModelLifecycle,
     ReplacementPrice,
@@ -115,7 +116,7 @@ class SoftwareVersionSerializer(NetBoxModelSerializer):
     class Meta:
         model = SoftwareVersion
         fields = (
-            'url', 'id', 'display', 'platform', 'version', 'release_date',
+            'url', 'id', 'display', 'platform', 'version', 'release_date', *SOFTWARE_LIFECYCLE_FIELDS,
             'image_filename', 'image_url', 'image_size',
             'checksum_type', 'checksum', 'download_url', 'installed_count',
             'description', 'comments', 'tags', 'custom_fields', 'created', 'last_updated',

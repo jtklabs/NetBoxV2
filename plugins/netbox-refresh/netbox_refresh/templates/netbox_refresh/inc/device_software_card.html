@@ -45,6 +45,9 @@
           {% else %}<span class="text-muted">Never collected</span>{% endif %}
         </td>
       </tr>
+      {% if software.software_version.end_of_support %}
+        <tr><td>Software support ends</td><td>{{ software.software_version.end_of_support }}</td></tr>
+      {% endif %}
       <tr>
         {# The images people actually want from a device page: what it should #}
         {# be running, one click from the device itself.                      #}

@@ -35,6 +35,7 @@ from netbox_refresh.choices import (
 )
 from netbox_refresh.models import (
     LIFECYCLE_DATE_FIELDS,
+    SOFTWARE_LIFECYCLE_FIELDS,
     DeviceSoftware,
     ModelLifecycle,
     ReplacementPrice,
@@ -351,6 +352,7 @@ class SoftwareVersionForm(NetBoxModelForm):
 
     fieldsets = (
         FieldSet('platform', 'version', 'release_date', name='Version'),
+        FieldSet(*SOFTWARE_LIFECYCLE_FIELDS, name='Lifecycle'),
         FieldSet(
             'image_filename', 'image_url', 'image_size',
             'checksum_type', 'checksum', name='Image',
@@ -362,12 +364,12 @@ class SoftwareVersionForm(NetBoxModelForm):
     class Meta:
         model = SoftwareVersion
         fields = (
-            'platform', 'version', 'release_date',
+            'platform', 'version', 'release_date', *SOFTWARE_LIFECYCLE_FIELDS,
             'image_filename', 'image_url', 'image_size',
             'checksum_type', 'checksum',
             'description', 'comments', 'tags',
         )
-        widgets = {'release_date': DatePicker()}
+        widgets = {field: DatePicker() for field in ('release_date', *SOFTWARE_LIFECYCLE_FIELDS[:3])}
         help_texts = {
             'image_url': 'Direct link, typically the internal image server. '
                          'Plain http is fine — this is a download link, not a page resource.',
@@ -385,6 +387,7 @@ class SoftwareVersionFilterForm(NetBoxModelFilterSetForm):
     release_date__lte = forms.DateField(
         required=False, widget=DatePicker(), label='Released before',
     )
+    end_of_support__lte = forms.DateField(required=False, widget=DatePicker(), label='Support ends by')
     checksum_type = forms.MultipleChoiceField(choices=ChecksumTypeChoices, required=False)
     has_image = forms.NullBooleanField(required=False, label='Has a downloadable image')
     tag = TagFilterField(model)
@@ -400,7 +403,7 @@ class SoftwareVersionImportForm(NetBoxModelImportForm):
     class Meta:
         model = SoftwareVersion
         fields = (
-            'platform', 'version', 'release_date',
+            'platform', 'version', 'release_date', *SOFTWARE_LIFECYCLE_FIELDS,
             'image_filename', 'image_url', 'image_size', 'checksum_type', 'checksum',
             'description', 'comments', 'tags',
         )

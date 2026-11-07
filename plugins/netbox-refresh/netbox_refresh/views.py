@@ -397,11 +397,11 @@ def _sites_in_scope(regions, sites):
     if not regions:
         return list(sites)
 
-    within = Site.objects.filter(
-        region__in=Region.objects.filter(
-            pk__in=[r.pk for r in regions]
-        ).get_descendants(include_self=True)
-    )
+    region_ids = {
+        pk for region in regions
+        for pk in region.get_descendants(include_self=True).values_list('pk', flat=True)
+    }
+    within = Site.objects.filter(region_id__in=region_ids)
     if sites:
         chosen = {s.pk for s in sites}
         return [s for s in within if s.pk in chosen]

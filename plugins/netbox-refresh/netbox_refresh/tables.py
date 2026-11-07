@@ -202,12 +202,12 @@ class SoftwareVersionTable(NetBoxTable):
     class Meta(NetBoxTable.Meta):
         model = SoftwareVersion
         fields = (
-            'pk', 'id', 'version', 'platform', 'release_date', 'image',
+            'pk', 'id', 'version', 'platform', 'release_date', 'end_of_support', 'image',
             'image_filename', 'image_url', 'image_size', 'checksum_type', 'checksum',
             'installed_count', 'description', 'created', 'last_updated',
         )
         default_columns = (
-            'version', 'platform', 'release_date', 'image', 'image_size',
+            'version', 'platform', 'release_date', 'end_of_support', 'image', 'image_size',
             'installed_count',
         )
 

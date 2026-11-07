@@ -1,0 +1,24 @@
+{% load helpers %}
+<div class="card">
+  <h5 class="card-header">License &amp; Support Coverage</h5>
+  <table class="table table-hover attr-table">
+    {% if show_licenses %}
+      <tr><th>Licenses</th><td>
+        {% for assignment in assignments %}
+          <div>{{ assignment|linkify }}{% if assignment.reported_expiration %} · Expires {{ assignment.reported_expiration }}{% endif %}</div>
+        {% empty %}
+          <span class="text-muted">No visible license assignments</span>
+        {% endfor %}
+      </td></tr>
+    {% endif %}
+    {% if show_contracts %}
+      <tr><th>Support contracts</th><td>
+        {% for contract in contracts %}
+          <div>{{ contract|linkify }} · {{ contract.coverage_status }}{% if contract.ends_on %} · Ends {{ contract.ends_on }}{% endif %}</div>
+        {% empty %}
+          <span class="text-muted">No visible support contracts</span>
+        {% endfor %}
+      </td></tr>
+    {% endif %}
+  </table>
+</div>

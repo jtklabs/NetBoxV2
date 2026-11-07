@@ -57,6 +57,16 @@ version_rollup = PluginMenuItem(
 menu = PluginMenu(
     label='Lifecycle',
     groups=(
+        ('Coverage', (
+            _item('licenseentitlement', 'License Entitlements', 'licenseentitlement', import_=False),
+            _item('licenseassignment', 'License Assignments', 'licenseassignment', import_=False),
+            _item('supportcontract', 'Support Contracts', 'supportcontract', import_=False),
+            PluginMenuItem(
+                link='plugins:netbox_refresh:coverage_report',
+                link_text='Coverage Report',
+                permissions=['dcim.view_device', 'netbox_refresh.view_supportcontract'],
+            ),
+        )),
         ('Hardware', (lifecycle, replacement_prices, refresh_report)),
         ('Software', (software_versions, software_standards, device_software,
                       compliance_report, version_rollup)),

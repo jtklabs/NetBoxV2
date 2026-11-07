@@ -12,6 +12,10 @@
             <tr><th>Platform</th><td>{{ object.platform|linkify }}</td></tr>
             <tr><th>Version</th><td><strong>{{ object.version }}</strong></td></tr>
             <tr><th>Released</th><td>{{ object.release_date|placeholder }}</td></tr>
+            <tr><th>End of maintenance</th><td>{{ object.end_of_maintenance|placeholder }}</td></tr>
+            <tr><th>End of security fixes</th><td>{{ object.end_of_security_support|placeholder }}</td></tr>
+            <tr><th>End of support</th><td>{{ object.end_of_support|placeholder }}</td></tr>
+            <tr><th>Vendor notice</th><td>{{ object.lifecycle_source_url|urlize|placeholder }}</td></tr>
             <tr><th>Devices running it</th><td>{{ object.installed_count }}</td></tr>
             <tr><th>Description</th><td>{{ object.description|placeholder }}</td></tr>
           </table>

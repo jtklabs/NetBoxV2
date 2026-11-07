@@ -1,0 +1,35 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">License Entitlement</h5>
+        <table class="table table-hover attr-table">
+          <tr><th>Manufacturer</th><td>{{ object.manufacturer|linkify }}</td></tr>
+          <tr><th>Product</th><td>{{ object.product }}</td></tr>
+          <tr><th>Reference</th><td>{{ object.reference }}</td></tr>
+          <tr><th>Purchased seats</th><td>{{ object.seats }}</td></tr>
+          <tr><th>Expires</th><td>{{ object.expires_on|placeholder }}</td></tr>
+          <tr><th>Renew by</th><td>{{ object.renew_by|placeholder }}</td></tr>
+          <tr><th>Source</th><td>{{ object.source_url|urlize|placeholder }}</td></tr>
+          <tr><th>Vault reference</th><td>{{ object.vault_reference|placeholder }}</td></tr>
+        </table>
+      </div>
+      {% include 'inc/panels/tags.html' %}
+      {% include 'inc/panels/comments.html' %}
+    </div>
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Visible Assignments ({{ visible_seats }} seats)</h5>
+        <table class="table table-hover">
+          {% for assignment in assignments %}
+            <tr><td>{{ assignment|linkify }}</td><td>{{ assignment.seats }}</td></tr>
+          {% empty %}
+            <tr><td>No visible assignments</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

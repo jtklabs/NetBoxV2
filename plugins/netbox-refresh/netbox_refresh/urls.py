@@ -1,7 +1,7 @@
 from django.urls import path
 from netbox.views.generic import ObjectChangeLogView
 
-from netbox_refresh import views
+from netbox_refresh import coverage, views
 from netbox_refresh.models import (
     DeviceSoftware,
     ModelLifecycle,
@@ -108,4 +108,4 @@ urlpatterns = [
     path('compliance/', views.ComplianceReportView.as_view(), name='compliance_report'),
     path('compliance/rollup/', views.VersionRollupView.as_view(), name='version_rollup'),
     path('sync/cisco/', views.CiscoSyncView.as_view(), name='cisco_sync'),
-]
+] + coverage.urlpatterns
