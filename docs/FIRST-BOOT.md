@@ -217,10 +217,15 @@ just a missing security control. `configtest` cannot catch any of this (absent
 blocks are valid syntax) — after any provisioning cycle, run:
 
 ```bash
-for m in 'Define NETBOX_BACKEND http' 'RequestHeader unset X-Remote-User early' 'RequestHeader set X-Remote-User' '<Location /netbox/api>' 'ProxyPass        /netbox/'; do grep -qF "$m" /etc/apache2/conf-available/netbox.conf && echo "ok       $m" || echo "MISSING  $m"; done
+for m in 'Define NETBOX_BACKEND http' 'RequestHeader unset X-Remote-User early' 'RequestHeader unset X_Remote_User early' 'RequestHeader set X-Remote-User' '<Location /netbox/api>' 'ProxyPass        /netbox/'; do grep -qF "$m" /etc/apache2/conf-available/netbox.conf && echo "ok       $m" || echo "MISSING  $m"; done
 ```
 
-Five `ok` lines means every load-bearing piece survived.
+Six `ok` lines means every load-bearing piece survived. The second one matters:
+the WSGI server behind NetBox reads `X_Remote_User` as `X-Remote-User`, so an
+installed copy that unsets only the hyphen spellings lets anyone send
+`X_Remote_User` and `X_User_Groups` to `/netbox/api` and log in as any user.
+Copy the whole spoof-protection block from the repo, not just that line.
+`testing/apache-header-spoof/run.sh` checks the repo copy for every spelling.
 
 ### API clients get redirected to the IdP instead of answered
 
