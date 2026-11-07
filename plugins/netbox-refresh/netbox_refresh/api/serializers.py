@@ -192,6 +192,43 @@ class SoftwareStandardSerializer(NetBoxModelSerializer):
         return data
 
 
+class SoftwareRecommendationParamsSerializer(serializers.Serializer):
+    device_name = serializers.CharField(required=False, max_length=253)
+    device_id = serializers.IntegerField(required=False, min_value=1)
+    site = serializers.SlugField(required=False, max_length=100, help_text='Site slug for a device name lookup.')
+
+    def validate(self, data):
+        if ('device_name' in data) == ('device_id' in data):
+            raise serializers.ValidationError('Provide either device_name or device_id.')
+        if 'site' in data and 'device_name' not in data:
+            raise serializers.ValidationError({'site': 'Use site with device_name.'})
+        return data
+
+
+class RecommendationDeviceSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField(allow_null=True)
+    site = serializers.SlugField(source='site.slug')
+
+
+class RecommendationVersionSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    version = serializers.CharField()
+    download_url = serializers.SerializerMethodField()
+
+    def get_download_url(self, obj) -> str | None:
+        return obj.download_url or None
+
+
+class SoftwareRecommendationSerializer(serializers.Serializer):
+    device = RecommendationDeviceSerializer()
+    status = serializers.ChoiceField(choices=('matched', 'no-standard', 'standard-conflict'))
+    standard = SoftwareStandardSerializer(nested=True, allow_null=True)
+    approved_versions = RecommendationVersionSerializer(many=True)
+    preferred_version = RecommendationVersionSerializer(allow_null=True)
+    preferred_download_url = serializers.CharField(allow_null=True)
+
+
 class DeviceSoftwareSerializer(NetBoxModelSerializer):
     url = serializers.HyperlinkedIdentityField(
         view_name='plugins-api:netbox_refresh-api:devicesoftware-detail'

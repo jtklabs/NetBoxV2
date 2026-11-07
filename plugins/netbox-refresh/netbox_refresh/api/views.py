@@ -9,20 +9,27 @@ from dcim.models import Device, Platform
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from netbox.api.viewsets import NetBoxModelViewSet
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from netbox_refresh import filtersets
 from netbox_refresh.api.serializers import (
     ReplacementPriceSerializer,
     DeviceSoftwareSerializer,
     ModelLifecycleSerializer,
+    SoftwareRecommendationParamsSerializer,
+    SoftwareRecommendationSerializer,
     SoftwareReportSerializer,
     SoftwareStandardSerializer,
     SoftwareVersionSerializer,
 )
+from netbox_refresh.compliance import resolve_standard
 from netbox_refresh.models import (
     DeviceSoftware,
     ModelLifecycle,
@@ -67,6 +74,59 @@ class SoftwareStandardViewSet(NetBoxModelViewSet):
     )
     serializer_class = SoftwareStandardSerializer
     filterset_class = filtersets.SoftwareStandardFilterSet
+
+
+class SoftwareRecommendationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(parameters=[SoftwareRecommendationParamsSerializer], responses=SoftwareRecommendationSerializer)
+    def get(self, request):
+        """Look up the current software target for a device, including unpolled devices."""
+        user = request.user
+        if not user.has_perms((
+            'dcim.view_device', 'netbox_refresh.view_softwarestandard', 'netbox_refresh.view_softwareversion',
+        )):
+            raise PermissionDenied('Device, software standard, and software version view permissions are required.')
+        query = SoftwareRecommendationParamsSerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        params = query.validated_data
+        devices = Device.objects.restrict(user, 'view').select_related('site').order_by('pk')
+        if 'device_id' in params:
+            devices = devices.filter(pk=params['device_id'])
+        else:
+            devices = devices.filter(name__iexact=params['device_name'])
+            if 'site' in params:
+                devices = devices.filter(site__slug__iexact=params['site'])
+        matches = list(devices[:2])
+        if not matches:
+            raise NotFound('No matching device.')
+        if len(matches) > 1:
+            return Response(
+                {'detail': 'Multiple devices match. Specify the site slug or use device_id.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        device = matches[0]
+        standard, conflict = resolve_standard(device)
+        approved, preferred = [], None
+        if standard is not None:
+            if not SoftwareStandard.objects.restrict(user, 'view').filter(pk=standard.pk).exists():
+                raise PermissionDenied('The applicable standard is outside your view permissions.')
+            approved = list(standard.approved_versions.all())
+            approved_ids = {version.pk for version in approved}
+            if approved_ids and SoftwareVersion.objects.restrict(user, 'view').filter(
+                pk__in=approved_ids,
+            ).count() != len(approved_ids):
+                raise PermissionDenied('The applicable standard includes versions outside your view permissions.')
+            preferred = next((version for version in approved if version.pk == standard.preferred_version_id), None)
+        result = SoftwareRecommendationSerializer({
+            'device': device,
+            'status': 'matched' if standard is not None else 'standard-conflict' if conflict else 'no-standard',
+            'standard': standard,
+            'approved_versions': approved,
+            'preferred_version': preferred,
+            'preferred_download_url': (preferred.download_url or None) if preferred else None,
+        }, context={'request': request})
+        return Response(result.data)
 
 
 class DeviceSoftwareViewSet(NetBoxModelViewSet):

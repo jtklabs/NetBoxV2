@@ -246,3 +246,102 @@ class SoftwareStandardsTest(TestCase):
         compliance = self.client.get(reverse('plugins:netbox_refresh:compliance_report'))
         self.assertContains(compliance, report_url)
         self.assertEqual(compliance.context['row_count'], 5)
+
+    def test_recommendation_returns_the_mode_standard_for_an_unpolled_device(self):
+        from extras.models import Tag
+
+        from netbox_refresh.models import SoftwareStandard
+
+        base = SoftwareVersion.objects.create(
+            platform=self.platform, version='general', image_url='https://images.example.test/general.img',
+        )
+        mode = SoftwareVersion.objects.create(
+            platform=self.platform, version='fips', image_url='https://images.example.test/fips.img',
+        )
+        alternate = SoftwareVersion.objects.create(platform=self.platform, version='fips-alternate')
+        general = SoftwareStandard.objects.create(preferred_version=base)
+        general.platforms.add(self.platform)
+        general.approved_versions.add(base)
+        tag = Tag.objects.create(name='FIPS', slug='fips')
+        specific = SoftwareStandard.objects.create(preferred_version=mode)
+        specific.device_tags.add(tag)
+        specific.platforms.add(self.platform)
+        specific.approved_versions.add(mode, alternate)
+        self.device.tags.add(tag)
+
+        url = reverse('plugins-api:netbox_refresh-api:software-recommendation')
+        response = self.client.get(url, {'device_name': self.device.name.upper()})
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data['device'], {'id': self.device.pk, 'name': self.device.name, 'site': self.device.site.slug})
+        self.assertEqual((data['status'], data['standard']['id']), ('matched', specific.pk))
+        self.assertEqual(data['preferred_version'], {'id': mode.pk, 'version': mode.version, 'download_url': mode.download_url})
+        self.assertEqual(data['preferred_download_url'], mode.download_url)
+        self.assertCountEqual(data['approved_versions'], [
+            data['preferred_version'], {'id': alternate.pk, 'version': alternate.version, 'download_url': None},
+        ])
+        self.assertFalse(DeviceSoftware.objects.filter(device=self.device).exists())
+
+        other_tag = Tag.objects.create(name='FISMA', slug='fisma')
+        competing = SoftwareStandard.objects.create(preferred_version=alternate)
+        competing.device_tags.add(other_tag)
+        competing.platforms.add(self.platform)
+        competing.approved_versions.add(alternate)
+        self.device.tags.add(other_tag)
+        conflict = self.client.get(url, {'device_id': self.device.pk}).json()
+        self.assertEqual(conflict['status'], 'standard-conflict')
+        self.assertIsNone(conflict['standard'])
+        self.assertIsNone(conflict['preferred_download_url'])
+        self.assertEqual(conflict['approved_versions'], [])
+
+    def test_recommendation_requires_an_unambiguous_device_name(self):
+        other_site = Site.objects.create(name='Other Lab', slug='other-lab')
+        other = Device.objects.create(
+            name=self.device.name, site=other_site, role=self.device.role, device_type=self.device.device_type,
+        )
+        url = reverse('plugins-api:netbox_refresh-api:software-recommendation')
+        self.assertEqual(self.client.get(url).status_code, 400)
+        self.assertEqual(self.client.get(url, {'device_name': 'missing'}).status_code, 404)
+        self.assertEqual(self.client.get(url, {'device_name': self.device.name}).status_code, 409)
+        response = self.client.get(url, {'device_name': self.device.name, 'site': other_site.slug})
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertEqual(data['device']['id'], other.pk)
+        self.assertEqual(data['status'], 'no-standard')
+        self.assertIsNone(data['preferred_download_url'])
+
+    def test_recommendation_respects_version_object_permissions(self):
+        from django.contrib.contenttypes.models import ContentType
+        from users.models import ObjectPermission
+
+        from netbox_refresh.models import SoftwareStandard
+
+        hidden = SoftwareVersion.objects.create(
+            platform=self.platform, version='restricted', image_url='https://images.example.test/restricted.img',
+        )
+        visible = SoftwareVersion.objects.create(platform=self.platform, version='visible')
+        standard = SoftwareStandard.objects.create(preferred_version=hidden)
+        standard.platforms.add(self.platform)
+        standard.approved_versions.add(visible, hidden)
+        user = get_user_model().objects.create_user('limited-software-reader')
+        for model, constraints in (
+            (Device, {'pk': self.device.pk}),
+            (SoftwareStandard, {'pk': standard.pk}),
+            (SoftwareVersion, {'pk': visible.pk}),
+        ):
+            permission = ObjectPermission.objects.create(
+                name=f'view-selected-{model.__name__}', actions=['view'], constraints=constraints,
+            )
+            permission.object_types.add(ContentType.objects.get_for_model(model))
+            permission.users.add(user)
+        self.client.force_login(user)
+        url = reverse('plugins-api:netbox_refresh-api:software-recommendation')
+        response = self.client.get(url, {'device_name': self.device.name})
+        self.assertEqual(response.status_code, 403, response.content)
+        self.assertNotContains(response, hidden.image_url, status_code=403)
+        standard.preferred_version = visible
+        standard.save()
+        standard.approved_versions.remove(hidden)
+        response = self.client.get(url, {'device_name': self.device.name})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['preferred_version']['id'], visible.pk)
