@@ -16,6 +16,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from extras.models import Tag
 from netbox.filtersets import NetBoxModelFilterSet
 
 from netbox_refresh.choices import (
@@ -242,6 +243,9 @@ class SoftwareStandardFilterSet(NetBoxModelFilterSet):
         field_name='platforms', queryset=Platform.objects.all(), label='Platform',
         distinct=True,
     )
+    device_tag_id = django_filters.ModelMultipleChoiceFilter(
+        field_name='device_tags', queryset=Tag.objects.all(), label='Device tag',
+    )
     approved_version_id = django_filters.ModelMultipleChoiceFilter(
         field_name='approved_versions', queryset=SoftwareVersion.objects.all(),
         label='Approves version',
@@ -270,6 +274,7 @@ class SoftwareStandardFilterSet(NetBoxModelFilterSet):
             | Q(approved_versions__version__icontains=value)
             | Q(device_types__model__icontains=value)
             | Q(platforms__name__icontains=value)
+            | Q(device_tags__name__icontains=value)
         ).distinct()
 
     def filter_is_active(self, queryset, name, value):

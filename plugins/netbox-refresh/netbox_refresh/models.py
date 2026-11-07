@@ -596,6 +596,12 @@ class SoftwareStandard(PrimaryModel):
         blank=True,
         help_text='Every platform this standard covers',
     )
+    device_tags = models.ManyToManyField(
+        to='extras.Tag',
+        related_name='scoped_software_standards',
+        blank=True,
+        help_text='Devices carrying any of these tags use this standard ahead of type or platform standards.',
+    )
 
     approved_versions = models.ManyToManyField(
         to=SoftwareVersion,
@@ -617,7 +623,7 @@ class SoftwareStandard(PrimaryModel):
         blank=True, null=True, help_text='Leave empty while this standard is current'
     )
 
-    clone_fields = ('device_types', 'platforms', 'preferred_version')
+    clone_fields = ('device_types', 'platforms', 'device_tags', 'preferred_version')
 
     class Meta:
         ordering = ('-valid_from', 'pk')
@@ -639,7 +645,7 @@ class SoftwareStandard(PrimaryModel):
 
     def scope_objects(self):
         """Everything this standard covers, device types first."""
-        return list(self.device_types.all()) + list(self.platforms.all())
+        return list(self.device_types.all()) + list(self.platforms.all()) + list(self.device_tags.all())
 
     def scope_summary(self, limit: int = 2) -> str:
         scopes = self.scope_objects()
@@ -651,7 +657,7 @@ class SoftwareStandard(PrimaryModel):
 
     @classmethod
     def conflicting_standards(cls, device_types, platforms, valid_from, valid_to,
-                              exclude_pk=None):
+                              exclude_pk=None, *, device_tags=()):
         """Standards whose validity window overlaps AND that share any scope.
 
         This is the overlap rule the old per-scope unique constraint only
@@ -666,10 +672,14 @@ class SoftwareStandard(PrimaryModel):
             Q(valid_to__isnull=True) | Q(valid_to__gte=valid_from)
         )
         scope = Q()
-        if device_types:
-            scope |= Q(device_types__in=[getattr(dt, 'pk', dt) for dt in device_types])
-        if platforms:
-            scope |= Q(platforms__in=[getattr(p, 'pk', p) for p in platforms])
+        if device_tags:
+            scope = Q(device_tags__in=device_tags)
+        else:
+            candidates = candidates.filter(device_tags__isnull=True)
+            if device_types:
+                scope |= Q(device_types__in=device_types)
+            if platforms:
+                scope |= Q(platforms__in=platforms)
         if not scope:
             return cls.objects.none()
         candidates = candidates.filter(scope).distinct()
@@ -695,7 +705,7 @@ class SoftwareStandard(PrimaryModel):
         if self.pk and self.valid_from:
             conflict = SoftwareStandard.conflicting_standards(
                 self.device_types.all(), self.platforms.all(),
-                self.valid_from, self.valid_to, exclude_pk=self.pk,
+                self.valid_from, self.valid_to, exclude_pk=self.pk, device_tags=self.device_tags.all(),
             ).first()
             if conflict:
                 raise ValidationError(

@@ -66,7 +66,7 @@ class SoftwareSourceChoices(ChoiceSet):
 class ComplianceStatusChoices(ChoiceSet):
     """Derived compliance state — computed, never stored.
 
-    Six states rather than a boolean, because the three ways of *not* being
+    Several states rather than a boolean, because the three ways of *not* being
     compliant are not the same thing and must not be reported as one:
 
       Unknown      we have never collected a version. Reporting this as
@@ -88,6 +88,7 @@ class ComplianceStatusChoices(ChoiceSet):
     STATUS_EXEMPT_EXPIRED = 'exempt-expired'
     STATUS_UNKNOWN = 'unknown'
     STATUS_NO_STANDARD = 'no-standard'
+    STATUS_CONFLICT = 'standard-conflict'
 
     CHOICES = [
         (STATUS_COMPLIANT, 'Compliant', 'green'),
@@ -96,6 +97,7 @@ class ComplianceStatusChoices(ChoiceSet):
         (STATUS_EXEMPT_EXPIRED, 'Exemption expired', 'orange'),
         (STATUS_UNKNOWN, 'Unknown', 'gray'),
         (STATUS_NO_STANDARD, 'No standard defined', 'blue'),
+        (STATUS_CONFLICT, 'Conflicting tag standards', 'orange'),
     ]
 
 

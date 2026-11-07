@@ -63,7 +63,7 @@ class SoftwareVersionViewSet(NetBoxModelViewSet):
 
 class SoftwareStandardViewSet(NetBoxModelViewSet):
     queryset = SoftwareStandard.objects.prefetch_related(
-        'device_types', 'platforms', 'approved_versions', 'preferred_version', 'tags'
+        'device_types', 'platforms', 'device_tags', 'approved_versions', 'preferred_version', 'tags'
     )
     serializer_class = SoftwareStandardSerializer
     filterset_class = filtersets.SoftwareStandardFilterSet

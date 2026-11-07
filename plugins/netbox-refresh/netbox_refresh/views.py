@@ -804,7 +804,7 @@ class SoftwareVersionBulkImportView(BulkImportView):
 @register_model_view(SoftwareStandard, name='list')
 class SoftwareStandardListView(ObjectListView):
     queryset = SoftwareStandard.objects.prefetch_related(
-        'device_types', 'platforms', 'approved_versions', 'preferred_version'
+        'device_types', 'platforms', 'device_tags', 'approved_versions', 'preferred_version'
     )
     table = tables.SoftwareStandardTable
     filterset = filtersets.SoftwareStandardFilterSet
@@ -814,7 +814,7 @@ class SoftwareStandardListView(ObjectListView):
 @register_model_view(SoftwareStandard)
 class SoftwareStandardView(ObjectView):
     queryset = SoftwareStandard.objects.prefetch_related(
-        'device_types', 'platforms', 'approved_versions'
+        'device_types', 'platforms', 'device_tags', 'approved_versions'
     )
 
     def get_extra_context(self, request, instance):
@@ -823,6 +823,7 @@ class SoftwareStandardView(ObjectView):
         history = SoftwareStandard.objects.filter(
             Q(device_types__in=instance.device_types.all())
             | Q(platforms__in=instance.platforms.all())
+            | Q(device_tags__in=instance.device_tags.all())
         ).exclude(pk=instance.pk).distinct().order_by('-valid_from')
         return {'history': history}
 

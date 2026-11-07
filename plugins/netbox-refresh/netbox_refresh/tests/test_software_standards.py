@@ -64,3 +64,76 @@ class SoftwareStandardsTest(TestCase):
         self.assertEqual(current.compliance_status, 'non-compliant')
         self.assertContains(self.client.get(self.device.get_absolute_url()), 'Non-compliant')
         self.assertEqual(SoftwareVersion.objects.count(), 3)
+
+    def test_device_tag_overrides_general_download_and_conflicting_tags_withhold_it(self):
+        from extras.models import Tag
+
+        from netbox_refresh.compliance import StandardResolver, device_compliance_rows
+        from netbox_refresh.models import SoftwareStandard
+
+        general = SoftwareVersion.objects.create(
+            platform=self.platform, version='general', image_url='https://images.example.test/general.img',
+        )
+        mode = SoftwareVersion.objects.create(
+            platform=self.platform, version='mode', image_url='https://images.example.test/mode.img',
+        )
+        reading = DeviceSoftware.objects.create(device=self.device, software_version=general)
+        platform_standard = SoftwareStandard.objects.create(preferred_version=general)
+        platform_standard.platforms.add(self.platform)
+        platform_standard.approved_versions.add(general)
+        type_standard = SoftwareStandard.objects.create(preferred_version=general)
+        type_standard.device_types.add(self.device.device_type)
+        type_standard.approved_versions.add(general)
+
+        mode_tag = Tag.objects.create(name='Special mode', slug='special-mode')
+        alternate_tag = Tag.objects.create(name='Alternate mode', slug='alternate-mode')
+        alias_tag = Tag.objects.create(name='Mode alias', slug='mode-alias')
+        url = reverse('plugins-api:netbox_refresh-api:softwarestandard-list')
+
+        def tagged_standard(*tags):
+            response = self.client.post(url, {
+                'device_tags': [tag.pk for tag in tags],
+                'approved_versions': [mode.pk], 'preferred_version': mode.pk,
+            }, content_type='application/json')
+            self.assertEqual(response.status_code, 201, response.content)
+            return SoftwareStandard.objects.get(pk=response.json()['id'])
+
+        tagged = tagged_standard(mode_tag, alias_tag)
+        tagged_standard(alternate_tag)
+        self.assertEqual(reading.standard, type_standard)
+        self.device.tags.add(mode_tag, alias_tag)
+        self.assertEqual(StandardResolver().for_device(self.device), tagged)
+        self.assertEqual(reading.standard, tagged)
+        self.assertEqual(reading.compliance_status, 'non-compliant')
+        card = self.client.get(self.device.get_absolute_url())
+        self.assertContains(card, mode.image_url)
+        self.assertNotContains(card, general.image_url)
+
+        self.device.tags.add(alternate_tag)
+        self.assertIsNone(StandardResolver().for_device(self.device))
+        self.assertEqual(device_compliance_rows([self.device])[0]['status'], 'standard-conflict')
+        card = self.client.get(self.device.get_absolute_url())
+        self.assertContains(card, 'Conflicting tag standards')
+        self.assertNotContains(card, mode.image_url)
+        self.assertNotContains(card, general.image_url)
+
+        self.device.tags.clear()
+        self.assertEqual(reading.standard, type_standard)
+        self.assertEqual(reading.compliance_status, 'compliant')
+
+    def test_tag_scope_form_and_api_reject_mixed_and_overlapping_scopes(self):
+        from extras.models import Tag
+
+        tag = Tag.objects.create(name='Special mode', slug='special-mode')
+        version = SoftwareVersion.objects.create(platform=self.platform, version='mode')
+        add_url = reverse('plugins:netbox_refresh:softwarestandard_add')
+        form = self.client.get(add_url)
+        self.assertContains(form, 'Device tags')
+        url = reverse('plugins-api:netbox_refresh-api:softwarestandard-list')
+        payload = {'device_tags': [tag.pk], 'approved_versions': [version.pk]}
+        mixed = self.client.post(url, {**payload, 'platforms': [self.platform.pk]}, content_type='application/json')
+        self.assertEqual(mixed.status_code, 400, mixed.content)
+        created = self.client.post(add_url, {**payload, 'valid_from': timezone.localdate().isoformat()})
+        self.assertEqual(created.status_code, 302, getattr(created.context, 'form', created.context))
+        duplicate = self.client.post(url, payload, content_type='application/json')
+        self.assertContains(duplicate, 'overlaps', status_code=400)

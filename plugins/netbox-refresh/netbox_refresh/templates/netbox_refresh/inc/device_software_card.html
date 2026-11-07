@@ -17,12 +17,11 @@
       {% endif %}
     </div>
   </h5>
-  {% if software %}
     <table class="table table-hover attr-table">
       <tr>
         <td>Compliance</td>
         <td>
-          {% badge software.get_compliance_status_display bg_color=software.get_compliance_status_color %}
+          {% badge status_label bg_color=status_color %}
           {% if software.is_stale %}
             <span class="text-warning ms-1" title="Not confirmed recently">
               <i class="mdi mdi-clock-alert-outline" aria-hidden="true"></i> stale
@@ -35,7 +34,7 @@
         <td>
           {% if software.software_version %}
             {{ software.software_version|linkify }}
-            {% if software.software_version.download_url %}
+            {% if software.software_version.download_url and not standard.device_tags.all and not standard_conflict %}
               <a href="{{ software.software_version.download_url }}" class="ms-1"
                  title="Download {{ software.software_version.image_filename|default:'image' }}">
                 <i class="mdi mdi-download" aria-hidden="true"></i>
@@ -53,8 +52,10 @@
         {# be running, one click from the device itself.                      #}
         <td>Approved</td>
         <td>
-          {% with standard=software.standard %}
-            {% if standard %}
+            {% if standard_conflict %}
+              <span class="text-warning">Resolve the matching device tag standards before choosing an image.</span>
+            {% elif standard %}
+              <div class="mb-1">{{ standard|linkify }}</div>
               {% for version in standard.approved_versions.all %}
                 <a href="{{ version.get_absolute_url }}">{{ version.version }}</a>{% if version.pk == standard.preferred_version_id %} <span class="text-muted small">(preferred)</span>{% endif %}{% if version.download_url %}
                   <a href="{{ version.download_url }}"
@@ -67,7 +68,6 @@
             {% else %}
               <span class="text-muted">No standard defined</span>
             {% endif %}
-          {% endwith %}
         </td>
       </tr>
       <tr>
@@ -95,9 +95,4 @@
         </tr>
       {% endif %}
     </table>
-  {% else %}
-    <div class="card-body">
-      <span class="text-muted">No software version recorded for this device</span>
-    </div>
-  {% endif %}
 </div>

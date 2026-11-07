@@ -14,9 +14,10 @@ simply do not know what it runs, so "no version collected" and "no standard
 defined" are their own states rather than being folded into pass or fail.
 """
 
+from collections import defaultdict
 from datetime import date
 
-from django.db.models import Q
+from django.db.models import Q, prefetch_related_objects
 
 from netbox_refresh.choices import ComplianceStatusChoices
 from netbox_refresh.models import DeviceSoftware, SoftwareStandard
@@ -39,20 +40,12 @@ def active_standards(on_date=None, queryset=None):
 
 
 class StandardResolver:
-    """Maps devices to the standard that applies to them, in two queries total.
+    """Resolve mode tags first, followed by device type and then platform."""
 
-    A device-type standard beats a platform standard: the platform rule is the
-    broad one ("all IOS-XE runs 17.09.04a") and the device-type rule is the
-    override ("but 9500s run 17.12.03").
-
-    The compliance report renders a row per device, so resolving per device
-    would be two queries each. Everything is loaded once and kept in dicts —
-    safe because the overlap check in SoftwareStandard.clean() guarantees at
-    most one standard per scope is in force on any given day.
-    """
-
-    def __init__(self, on_date=None):
+    def __init__(self, on_date=None, queryset=None):
         self.on_date = on_date or date.today()
+        self.queryset = SoftwareStandard.objects.all() if queryset is None else queryset
+        self._by_tag = defaultdict(list)
         self._by_device_type = {}
         self._by_platform = {}
         self._loaded = False
@@ -61,80 +54,83 @@ class StandardResolver:
         if self._loaded:
             return
         standards = active_standards(
-            self.on_date,
-            SoftwareStandard.objects.prefetch_related(
-                'approved_versions', 'device_types', 'platforms'
+            self.on_date, self.queryset.select_related('preferred_version').prefetch_related(
+                'approved_versions', 'device_types', 'platforms', 'device_tags',
             ),
         )
-        # A standard now covers many scopes; index it under each one. The
-        # overlap validation guarantees no two active standards share a scope,
-        # so each key still maps to exactly one standard.
         for standard in standards:
+            tags = list(standard.device_tags.all())
+            if tags:
+                for tag in tags:
+                    self._by_tag[tag.pk].append(standard)
+                continue
             for device_type in standard.device_types.all():
                 self._by_device_type[device_type.pk] = standard
             for platform in standard.platforms.all():
                 self._by_platform[platform.pk] = standard
         self._loaded = True
 
-    def for_device(self, device):
-        if device is None:
-            return None
+    @property
+    def uses_device_tags(self):
         self._load()
-        found = self._by_device_type.get(device.device_type_id)
-        if found is not None:
-            return found
-        if device.platform_id:
-            return self._by_platform.get(device.platform_id)
-        return None
+        return bool(self._by_tag)
+
+    def resolve(self, device, tag_ids=None):
+        """Return (standard, conflict). Conflicting tags suppress general recommendations."""
+        if device is None:
+            return None, False
+        if self.uses_device_tags:
+            if tag_ids is None:
+                tag_ids = [tag.pk for tag in device.tags.all()]
+            matches = {standard.pk: standard for tag in tag_ids for standard in self._by_tag.get(tag, ())}
+            if matches:
+                return (next(iter(matches.values())), False) if len(matches) == 1 else (None, True)
+        standard = self._by_device_type.get(device.device_type_id) or self._by_platform.get(device.platform_id)
+        return standard, False
+
+    def for_device(self, device):
+        return self.resolve(device)[0]
+
+
+def resolve_standard(device, on_date=None):
+    if device is None:
+        return None, False
+    tag_ids = [tag.pk for tag in device.tags.all()]
+    general = Q(device_types=device.device_type_id)
+    if device.platform_id:
+        general |= Q(platforms=device.platform_id)
+    candidates = SoftwareStandard.objects.filter(
+        Q(device_tags__in=tag_ids) | (Q(device_tags__isnull=True) & general),
+    ).distinct()
+    return StandardResolver(on_date, candidates).resolve(device, tag_ids)
 
 
 def standard_for_device(device, on_date=None):
     """The standard applying to one device. Prefer StandardResolver in bulk."""
-    if device is None:
-        return None
-    on_date = on_date or date.today()
-    base = SoftwareStandard.objects.prefetch_related('approved_versions')
-
-    found = active_standards(on_date, base).filter(
-        device_types=device.device_type_id
-    ).first()
-    if found is not None:
-        return found
-
-    if device.platform_id:
-        return active_standards(on_date, base).filter(
-            platforms=device.platform_id
-        ).first()
-    return None
+    return resolve_standard(device, on_date)[0]
 
 
-def evaluate(device_software, standard=None, resolver=None):
+def evaluate(device_software, standard=None, resolver=None, *, conflict=False):
     """The compliance state of one DeviceSoftware row.
 
     Order matters. Exemption is checked first because an exempt device is
     excluded from the pass/fail question entirely — but it is still reported,
     as its own state, never dropped from the view.
     """
-    if device_software is None:
-        return ComplianceStatusChoices.STATUS_UNKNOWN
-
-    if device_software.exempt:
+    if device_software is not None and device_software.exempt:
         if device_software.exemption_expired:
             return ComplianceStatusChoices.STATUS_EXEMPT_EXPIRED
         return ComplianceStatusChoices.STATUS_EXEMPT
 
-    # A raw_version we could not match to a catalogued version counts as
-    # Unknown, not as non-compliant: we know the device said something, but not
-    # what it means in terms of our approved set. The row still shows the raw
-    # string so somebody can go and catalogue it.
-    if not device_software.software_version_id:
-        return ComplianceStatusChoices.STATUS_UNKNOWN
-
-    if standard is None:
-        standard = (
-            resolver.for_device(device_software.device) if resolver is not None
-            else standard_for_device(device_software.device)
+    if standard is None and not conflict and device_software is not None:
+        standard, conflict = (
+            resolver.resolve(device_software.device) if resolver is not None
+            else resolve_standard(device_software.device)
         )
+    if conflict:
+        return ComplianceStatusChoices.STATUS_CONFLICT
+    if device_software is None or not device_software.software_version_id:
+        return ComplianceStatusChoices.STATUS_UNKNOWN
     if standard is None:
         return ComplianceStatusChoices.STATUS_NO_STANDARD
 
@@ -156,6 +152,8 @@ def device_compliance_rows(devices, on_date=None):
     """
     resolver = StandardResolver(on_date)
     devices = list(devices)
+    if resolver.uses_device_tags:
+        prefetch_related_objects(devices, 'tags')
 
     records = DeviceSoftware.objects.filter(
         device__in=[d.pk for d in devices]
@@ -169,14 +167,14 @@ def device_compliance_rows(devices, on_date=None):
             # The resolver needs the device object; reuse the one we already
             # have rather than letting the FK re-fetch it.
             record.device = device
-        standard = resolver.for_device(device)
-        status = evaluate(record, standard=standard)
+        standard, conflict = resolver.resolve(device)
+        status = evaluate(record, standard=standard, resolver=resolver, conflict=conflict)
         rows.append({
             'device': device,
             'record': record,
             'standard': standard,
             'status': status,
-            'status_label': _label(status),
+            'status_label': status_label(status),
             'status_color': ComplianceStatusChoices.colors.get(status),
             'version': record.version_label if record else '',
             'source': record.get_source_display() if record else '',
@@ -205,6 +203,6 @@ def summarise(rows):
     ]
 
 
-def _label(status):
+def status_label(status):
     labels = {entry[0]: entry[1] for entry in ComplianceStatusChoices.CHOICES}
     return labels.get(status, status)

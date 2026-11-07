@@ -57,7 +57,7 @@ def software_cells(devices):
             preferred[device.pk] = standard.preferred_version
         # Lifecycle says Unknown for a device with no record before it looks for a
         # standard; with no standard there is nothing to measure, so it does not apply.
-        if standard is None:
+        if standard is None and row['status'] != 'standard-conflict':
             cells[device.pk] = None
             continue
         title = row['version'] or 'No version collected'

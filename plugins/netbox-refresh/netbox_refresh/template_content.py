@@ -2,6 +2,8 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from netbox.plugins import PluginTemplateExtension
 
+from netbox_refresh.choices import ComplianceStatusChoices
+from netbox_refresh.compliance import evaluate, resolve_standard, status_label
 from netbox_refresh.models import (
     DeviceSoftware, LicenseAssignment, ModelLifecycle, SoftwareStandard, SupportContract,
 )
@@ -83,9 +85,15 @@ class DeviceSoftwareCard(PluginTemplateExtension):
         record = DeviceSoftware.objects.filter(device=device).select_related(
             'software_version', 'software_version__platform'
         ).first()
+        standard, conflict = resolve_standard(device)
+        status = evaluate(record, standard=standard, conflict=conflict)
         return self.render(
             'netbox_refresh/inc/device_software_card.html',
-            extra_context={'software': record, 'device': device},
+            extra_context={
+                'software': record, 'device': device, 'standard': standard, 'standard_conflict': conflict,
+                'status_label': status_label(status),
+                'status_color': ComplianceStatusChoices.colors[status],
+            },
         )
 
 
@@ -102,7 +110,7 @@ class BaseStandardCard(PluginTemplateExtension):
 
         field = 'device_types' if obj._meta.model_name == 'devicetype' else 'platforms'
         return active_standards().filter(
-            **{field: obj.pk}
+            device_tags__isnull=True, **{field: obj.pk}
         ).prefetch_related('approved_versions').first()
 
     def right_page(self):

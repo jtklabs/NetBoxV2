@@ -10,6 +10,7 @@ from dcim.models import (
 )
 from django import forms
 from django.contrib.contenttypes.models import ContentType
+from extras.models import Tag
 from netbox.forms import (
     NetBoxModelBulkEditForm,
     NetBoxModelFilterSetForm,
@@ -432,6 +433,10 @@ class SoftwareVersionBulkEditForm(NetBoxModelBulkEditForm):
 
 
 class SoftwareStandardForm(NetBoxModelForm):
+    device_tags = DynamicModelMultipleChoiceField(
+        queryset=Tag.objects.all(), required=False, label='Device tags',
+        help_text='Use this field by itself for mode-specific code. A matching tag takes precedence over device type and platform.',
+    )
     device_types = DynamicModelMultipleChoiceField(
         queryset=DeviceType.objects.all(), required=False,
         help_text='Every device type this standard covers — a fleet usually '
@@ -454,7 +459,7 @@ class SoftwareStandardForm(NetBoxModelForm):
     )
 
     fieldsets = (
-        FieldSet('device_types', 'platforms', name='Applies to'),
+        FieldSet('device_types', 'platforms', 'device_tags', name='Applies to'),
         FieldSet('approved_versions', 'preferred_version', name='Approved software'),
         FieldSet('valid_from', 'valid_to', name='In force'),
         FieldSet('description', name='Reference'),
@@ -464,7 +469,7 @@ class SoftwareStandardForm(NetBoxModelForm):
     class Meta:
         model = SoftwareStandard
         fields = (
-            'device_types', 'platforms', 'approved_versions', 'preferred_version',
+            'device_types', 'platforms', 'device_tags', 'approved_versions', 'preferred_version',
             'valid_from', 'valid_to', 'description', 'comments', 'tags',
         )
         widgets = {'valid_from': DatePicker(), 'valid_to': DatePicker()}
@@ -478,9 +483,11 @@ class SoftwareStandardForm(NetBoxModelForm):
         super().clean()
         device_types = self.cleaned_data.get('device_types')
         platforms = self.cleaned_data.get('platforms')
-        if not device_types and not platforms:
-            raise forms.ValidationError('Select what this standard applies to — '
-                                        'at least one device type or platform.')
+        device_tags = self.cleaned_data.get('device_tags')
+        if not (device_types or platforms or device_tags):
+            raise forms.ValidationError('Select at least one device type, platform, or device tag.')
+        if device_tags and (device_types or platforms):
+            raise forms.ValidationError('Use device tags on their own for a tag-scoped standard.')
 
         # The model cannot check these on create — the M2Ms do not exist until
         # the row is saved — so they are enforced here against the submitted
@@ -514,7 +521,7 @@ class SoftwareStandardForm(NetBoxModelForm):
         if valid_from:
             conflict = SoftwareStandard.conflicting_standards(
                 device_types or (), platforms or (), valid_from, valid_to,
-                exclude_pk=self.instance.pk,
+                exclude_pk=self.instance.pk, device_tags=device_tags or (),
             ).first()
             if conflict:
                 raise forms.ValidationError(
@@ -530,6 +537,9 @@ class SoftwareStandardFilterForm(NetBoxModelFilterSetForm):
     )
     platform_id = DynamicModelMultipleChoiceField(
         queryset=Platform.objects.all(), required=False, label='Platform',
+    )
+    device_tag_id = DynamicModelMultipleChoiceField(
+        queryset=Tag.objects.all(), required=False, label='Device tag',
     )
     approved_version_id = DynamicModelMultipleChoiceField(
         queryset=SoftwareVersion.objects.all(), required=False, label='Approves version',

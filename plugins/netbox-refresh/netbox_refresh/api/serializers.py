@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.contrib.contenttypes.models import ContentType
 from netbox.api.fields import ContentTypeField
 from netbox.api.serializers import NetBoxModelSerializer
@@ -136,12 +138,12 @@ class SoftwareStandardSerializer(NetBoxModelSerializer):
         model = SoftwareStandard
         fields = (
             'url', 'id', 'display',
-            'device_types', 'platforms',
+            'device_types', 'platforms', 'device_tags',
             'approved_versions', 'preferred_version', 'valid_from', 'valid_to',
             'is_active', 'description', 'comments', 'tags', 'custom_fields',
             'created', 'last_updated',
         )
-        brief_fields = ('url', 'id', 'display', 'device_types', 'platforms',
+        brief_fields = ('url', 'id', 'display', 'device_types', 'platforms', 'device_tags',
                         'valid_from', 'valid_to')
 
     def validate(self, data):
@@ -158,16 +160,25 @@ class SoftwareStandardSerializer(NetBoxModelSerializer):
             'platforms',
             list(instance.platforms.all()) if instance else [],
         )
-        if not device_types and not platforms:
+        device_tags = data.get('device_tags', list(instance.device_tags.all()) if instance else [])
+        if not (device_types or platforms or device_tags):
             raise serializers.ValidationError(
-                'A standard must cover at least one device type or platform.'
+                'A standard must cover at least one device type, platform, or device tag.'
             )
-        valid_from = data.get('valid_from', instance.valid_from if instance else None)
+        if device_tags and (device_types or platforms):
+            raise serializers.ValidationError('Use device tags on their own for a tag-scoped standard.')
+        approved = data.get('approved_versions', list(instance.approved_versions.all()) if instance else [])
+        preferred = data.get('preferred_version', instance.preferred_version if instance else None)
+        if preferred and preferred not in approved:
+            raise serializers.ValidationError({
+                'preferred_version': 'The preferred version must be one of the approved versions.',
+            })
+        valid_from = data.get('valid_from', instance.valid_from if instance else date.today())
         valid_to = data.get('valid_to', instance.valid_to if instance else None)
         if valid_from:
             conflict = SoftwareStandard.conflicting_standards(
                 device_types, platforms, valid_from, valid_to,
-                exclude_pk=instance.pk if instance else None,
+                exclude_pk=instance.pk if instance else None, device_tags=device_tags,
             ).first()
             if conflict:
                 raise serializers.ValidationError(

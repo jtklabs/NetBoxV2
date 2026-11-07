@@ -21,6 +21,12 @@
                   {{ platform|linkify }}{% if not forloop.last %}<br />{% endif %}
                 {% empty %}<span class="text-muted">&mdash;</span>{% endfor %}
               </td></tr>
+            <tr><th>Device tags</th>
+              <td>
+                {% for tag in object.device_tags.all %}
+                  {{ tag|linkify }}{% if not forloop.last %}<br />{% endif %}
+                {% empty %}<span class="text-muted">&mdash;</span>{% endfor %}
+              </td></tr>
             <tr><th>Adopted</th><td>{{ object.valid_from }}</td></tr>
             <tr><th>Superseded</th>
               <td>{% if object.valid_to %}{{ object.valid_to }}
@@ -92,8 +98,7 @@
               </tbody>
             </table>
           {% else %}
-            <span class="text-muted">This is the only standard recorded for this
-              device type or platform</span>
+            <span class="text-muted">This is the only standard recorded for this scope</span>
           {% endif %}
         </div>
       </div>

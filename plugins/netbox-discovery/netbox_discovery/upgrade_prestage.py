@@ -105,7 +105,10 @@ def plan(policy, now=None, *, force=False):
         if software is not None and software.exempt:
             row['detail'] = 'Marked do not upgrade in Lifecycle'
             continue
-        standard = resolver.for_device(device)
+        standard, conflict = resolver.resolve(device)
+        if conflict:
+            row['detail'] = 'Conflicting tag-scoped software standards'
+            continue
         version = standard.preferred_version if standard is not None else None
         if version is None:
             row['detail'] = 'No software standard with a preferred version applies'
