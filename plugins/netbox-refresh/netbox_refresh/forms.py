@@ -71,6 +71,13 @@ DATE_FIELDS = LIFECYCLE_DATE_FIELDS
 
 
 class ModelLifecycleForm(NetBoxModelForm):
+    effective_end_of_life = forms.DateField(
+        label='Functional end of life',
+        disabled=True,
+        required=False,
+        widget=forms.DateInput(format='%Y-%m-%d'),
+        help_text='Automatically uses the earlier of end of security support and end of support.',
+    )
     device_type = DynamicModelChoiceField(
         queryset=DeviceType.objects.all(), required=False, selector=True,
     )
@@ -94,7 +101,7 @@ class ModelLifecycleForm(NetBoxModelForm):
             ),
             name='Hardware model',
         ),
-        FieldSet(*DATE_FIELDS, 'last_checked', name='Lifecycle dates'),
+        FieldSet(*DATE_FIELDS, 'effective_end_of_life', 'last_checked', name='Lifecycle dates'),
         FieldSet(
             TabbedGroups(
                 FieldSet('replacement_device_type', name='Device Type'),
@@ -126,10 +133,12 @@ class ModelLifecycleForm(NetBoxModelForm):
     def __init__(self, *args, **kwargs):
         instance = kwargs.get('instance')
         initial = kwargs.get('initial', {}).copy()
-        if instance is not None and instance.assigned_object:
-            field = ('device_type' if instance.assigned_object._meta.model_name == 'devicetype'
-                     else 'module_type')
-            initial[field] = instance.assigned_object
+        if instance is not None:
+            initial['effective_end_of_life'] = instance.effective_end_of_life
+            if instance.assigned_object:
+                field = ('device_type' if instance.assigned_object._meta.model_name == 'devicetype'
+                         else 'module_type')
+                initial[field] = instance.assigned_object
         kwargs['initial'] = initial
         super().__init__(*args, **kwargs)
 

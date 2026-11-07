@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-refresh"
-version = "0.3.1"
+version = "0.3.2"
 description = "Hardware and software lifecycle, licenses, and support coverage for NetBox"
 authors = [{ name = "Nova Team" }]
 requires-python = ">=3.10"
@@ -13,4 +13,4 @@ requires-python = ">=3.10"
 include = ["netbox_refresh*"]
 
 [tool.setuptools.package-data]
-netbox_refresh = ["templates/**/*.html"]
+netbox_refresh = ["templates/**/*.html", "static/**/*.js"]

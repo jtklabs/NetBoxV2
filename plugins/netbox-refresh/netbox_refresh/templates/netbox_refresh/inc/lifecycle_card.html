@@ -19,7 +19,9 @@
         <td>{% badge lifecycle.get_status_display bg_color=lifecycle.get_status_color %}</td>
       </tr>
       <tr><td>End of sale</td><td>{{ lifecycle.end_of_sale|placeholder }}</td></tr>
+      <tr><td>End of security support</td><td>{{ lifecycle.end_of_security_support|placeholder }}</td></tr>
       <tr><td>End of support</td><td>{{ lifecycle.end_of_support|placeholder }}</td></tr>
+      <tr><td>Functional end of life</td><td>{{ lifecycle.effective_end_of_life|placeholder }}</td></tr>
       <tr><td>Replacement</td><td>{{ lifecycle.replacement|linkify|placeholder }}</td></tr>
       <tr>
         <td>Replacement cost</td>

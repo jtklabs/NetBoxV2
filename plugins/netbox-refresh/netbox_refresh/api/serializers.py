@@ -34,6 +34,7 @@ class ModelLifecycleSerializer(NetBoxModelSerializer):
     installed_count = serializers.IntegerField(read_only=True)
     extended_cost = serializers.SerializerMethodField(read_only=True)
     status = serializers.CharField(read_only=True)
+    effective_end_of_life = serializers.DateField(read_only=True)
 
     class Meta:
         model = ModelLifecycle
@@ -43,6 +44,7 @@ class ModelLifecycleSerializer(NetBoxModelSerializer):
             'announcement_date', 'end_of_sale', 'end_of_sw_maintenance',
             'end_of_security_support', 'end_of_routine_failure_analysis',
             'end_of_service_attach', 'end_of_service_contract_renewal', 'end_of_support',
+            'effective_end_of_life',
             'status', 'bulletin_number', 'bulletin_url',
             'replacement_device_type', 'replacement_module_type', 'replacement',
             'replacement_notes', 'replacement_cost', 'currency', 'cost_updated',

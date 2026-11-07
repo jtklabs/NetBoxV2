@@ -120,3 +120,32 @@ class TheAnnotationMustNotShadowTheProperty(EffectiveEndOfLifeTest):
         from netbox_refresh.models import EFFECTIVE_EOL_ALIAS
 
         self.assertNotEqual(EFFECTIVE_EOL_ALIAS, 'effective_end_of_life')
+
+
+class FunctionalEndOfLifePageTest(TestCase):
+    def test_edit_preview_and_api_use_the_derived_date(self):
+        from django.contrib.auth import get_user_model
+        from django.urls import reverse
+
+        manufacturer = Manufacturer.objects.create(name='Cisco', slug='cisco')
+        device_type = DeviceType.objects.create(manufacturer=manufacturer, model='C9300', slug='c9300')
+        self.client.force_login(get_user_model().objects.create_superuser('lifecycle-editor', password='test'))
+        add = self.client.get(reverse('plugins:netbox_refresh:modellifecycle_add'), {'device_type': device_type.pk})
+        self.assertContains(add, 'functional-eol.js')
+        self.assertTrue(add.context['form'].fields['effective_end_of_life'].disabled)
+        self.assertIsNone(add.context['form']['effective_end_of_life'].value())
+
+        lifecycle = ModelLifecycle.objects.create(
+            assigned_object=device_type, end_of_support=date(2030, 1, 1),
+        )
+        edit = self.client.get(reverse('plugins:netbox_refresh:modellifecycle_edit', args=[lifecycle.pk]))
+        self.assertContains(edit, 'value="2030-01-01"')
+        self.assertContains(edit, 'Functional end of life')
+
+        url = reverse('plugins-api:netbox_refresh-api:modellifecycle-detail', args=[lifecycle.pk])
+        update = self.client.patch(url, {
+            'end_of_security_support': '2029-01-01', 'effective_end_of_life': '2040-01-01',
+        }, content_type='application/json')
+        self.assertEqual(update.status_code, 200, update.content)
+        self.assertEqual(update.json()['effective_end_of_life'], '2029-01-01')
+        self.assertContains(self.client.get(lifecycle.get_absolute_url()), 'Functional end of life')

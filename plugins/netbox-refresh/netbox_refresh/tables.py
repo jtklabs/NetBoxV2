@@ -46,7 +46,7 @@ class ModelLifecycleTable(NetBoxTable):
     # Not a stored column, so it cannot be ordered on here — the refresh report
     # annotates the same value in SQL when it needs to sort or filter.
     effective_end_of_life = columns.DateColumn(
-        orderable=False, verbose_name='End of life',
+        orderable=False, verbose_name='Functional end of life',
         accessor='effective_end_of_life',
     )
 

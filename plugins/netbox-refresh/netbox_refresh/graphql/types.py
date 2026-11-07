@@ -13,6 +13,7 @@ re-implement the rules. They resolve per object, so they cannot be filtered or
 ordered on; see filters.py.
 """
 
+from datetime import date
 from typing import TYPE_CHECKING, Annotated
 
 import strawberry
@@ -64,6 +65,10 @@ class ModelLifecycleType(PrimaryObjectType):
     def status(self) -> str:
         """Derived from the dates — see ModelLifecycle.status."""
         return self.status
+
+    @strawberry_django.field
+    def effective_end_of_life(self) -> date | None:
+        return self.effective_end_of_life
 
 
 @strawberry_django.type(

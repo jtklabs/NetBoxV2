@@ -11,7 +11,7 @@ class RefreshConfig(PluginConfig):
     name = 'netbox_refresh'
     verbose_name = 'Lifecycle'
     description = 'Hardware and software lifecycle, licenses, and support coverage'
-    version = '0.3.1'
+    version = '0.3.2'
     author = 'Nova Team'
     author_email = 'noreply@example.com'
     base_url = 'refresh'

@@ -139,6 +139,7 @@ class ModelLifecycleView(ObjectView):
 class ModelLifecycleEditView(ObjectEditView):
     queryset = ModelLifecycle.objects.all()
     form = forms.ModelLifecycleForm
+    template_name = 'netbox_refresh/modellifecycle_edit.html'
 
 
 @register_model_view(ModelLifecycle, 'delete')
