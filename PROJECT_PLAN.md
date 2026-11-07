@@ -236,7 +236,7 @@ Each gate ends with a demo + your sign-off before we proceed. Effort is in worki
 | netbox-contract lags NetBox releases (declared matrix behind) | D7 decoupling; we run our own spike before any NetBox bump (proven cheap on 2026-07-28); only bump when both plugins verify. |
 | Subpath (`BASE_PATH`) breakage — esp. plugin pages, static files | netbox-docker removed the easy env var for a reason; §9 has the exact recipe; dev now runs behind the same subpath continuously, so regressions surface immediately. |
 | Docker Hub rate limits / registry outage at 30-day boot time | Image is baked into the AMI by `scripts/prod-build.sh` (no ECR — D11), so a boot needs no registry. |
-| Header-spoofing of `X-Remote-User` | Apache `RequestHeader unset` inbound + set from MELLON var only; NetBox only reachable via loopback proxy (no public port). |
+| Header-spoofing of `X-Remote-User` | Apache `RequestHeader unset` inbound for every `-`/`_` spelling (the WSGI server reads `X_Remote_User` as `X-Remote-User`; checked by `testing/apache-header-spoof`) + set from MELLON var only; NetBox only reachable via loopback proxy (no public port). |
 | Queue jobs lost during redeploy window | Redeploy in a maintenance window; jobs are re-runnable (housekeeping, discovery ingests re-sync). |
 | SAML logout ≠ NetBox logout | Wire NetBox logout redirect → `/mellon/logout`; document session behavior at Gate 4. |
 | Discovery credentials sprawl | Single creds file on data disk, referenced by agent config; SSM Parameter Store as hardening follow-up. |
