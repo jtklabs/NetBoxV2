@@ -222,7 +222,8 @@ class RecommendationVersionSerializer(serializers.Serializer):
 
 class SoftwareRecommendationSerializer(serializers.Serializer):
     device = RecommendationDeviceSerializer()
-    status = serializers.ChoiceField(choices=('matched', 'no-standard', 'standard-conflict'))
+    status = serializers.ChoiceField(choices=('standard-found', 'no-standard', 'standard-conflict'))
+    compliance_status = serializers.ChoiceField(choices=('compliant', 'non-compliant', 'unknown'))
     standard = SoftwareStandardSerializer(nested=True, allow_null=True)
     approved_versions = RecommendationVersionSerializer(many=True)
     preferred_version = RecommendationVersionSerializer(allow_null=True)

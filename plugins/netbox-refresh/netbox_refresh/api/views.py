@@ -29,7 +29,8 @@ from netbox_refresh.api.serializers import (
     SoftwareStandardSerializer,
     SoftwareVersionSerializer,
 )
-from netbox_refresh.compliance import resolve_standard
+from netbox_refresh.choices import ComplianceStatusChoices
+from netbox_refresh.compliance import evaluate, resolve_standard
 from netbox_refresh.models import (
     DeviceSoftware,
     ModelLifecycle,
@@ -108,6 +109,7 @@ class SoftwareRecommendationView(APIView):
         device = matches[0]
         standard, conflict = resolve_standard(device)
         approved, preferred = [], None
+        compliance_status = ComplianceStatusChoices.STATUS_UNKNOWN
         if standard is not None:
             if not SoftwareStandard.objects.restrict(user, 'view').filter(pk=standard.pk).exists():
                 raise PermissionDenied('The applicable standard is outside your view permissions.')
@@ -118,9 +120,16 @@ class SoftwareRecommendationView(APIView):
             ).count() != len(approved_ids):
                 raise PermissionDenied('The applicable standard includes versions outside your view permissions.')
             preferred = next((version for version in approved if version.pk == standard.preferred_version_id), None)
+            reading = DeviceSoftware.objects.restrict(user, 'view').filter(device=device).only(
+                'software_version', 'exempt', 'exempt_review_by',
+            ).first()
+            verdict = evaluate(reading, standard=standard)
+            if verdict in (ComplianceStatusChoices.STATUS_COMPLIANT, ComplianceStatusChoices.STATUS_NON_COMPLIANT):
+                compliance_status = verdict
         result = SoftwareRecommendationSerializer({
             'device': device,
-            'status': 'matched' if standard is not None else 'standard-conflict' if conflict else 'no-standard',
+            'status': 'standard-found' if standard is not None else 'standard-conflict' if conflict else 'no-standard',
+            'compliance_status': compliance_status,
             'standard': standard,
             'approved_versions': approved,
             'preferred_version': preferred,

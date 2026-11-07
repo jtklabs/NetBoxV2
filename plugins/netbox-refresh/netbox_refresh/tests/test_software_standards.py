@@ -274,13 +274,23 @@ class SoftwareStandardsTest(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         data = response.json()
         self.assertEqual(data['device'], {'id': self.device.pk, 'name': self.device.name, 'site': self.device.site.slug})
-        self.assertEqual((data['status'], data['standard']['id']), ('matched', specific.pk))
+        self.assertEqual((data['status'], data['standard']['id']), ('standard-found', specific.pk))
+        self.assertEqual(data['compliance_status'], 'unknown')
         self.assertEqual(data['preferred_version'], {'id': mode.pk, 'version': mode.version, 'download_url': mode.download_url})
         self.assertEqual(data['preferred_download_url'], mode.download_url)
         self.assertCountEqual(data['approved_versions'], [
             data['preferred_version'], {'id': alternate.pk, 'version': alternate.version, 'download_url': None},
         ])
         self.assertFalse(DeviceSoftware.objects.filter(device=self.device).exists())
+
+        reading = DeviceSoftware.objects.create(device=self.device, software_version=alternate)
+        response = self.client.get(url, {'device_id': self.device.pk}).json()
+        self.assertEqual(response['compliance_status'], 'compliant')
+        reading.software_version = base
+        reading.save()
+        response = self.client.get(url, {'device_id': self.device.pk}).json()
+        self.assertEqual(response['compliance_status'], 'non-compliant')
+        self.assertEqual(response['status'], 'standard-found')
 
         other_tag = Tag.objects.create(name='FISMA', slug='fisma')
         competing = SoftwareStandard.objects.create(preferred_version=alternate)
@@ -290,6 +300,7 @@ class SoftwareStandardsTest(TestCase):
         self.device.tags.add(other_tag)
         conflict = self.client.get(url, {'device_id': self.device.pk}).json()
         self.assertEqual(conflict['status'], 'standard-conflict')
+        self.assertEqual(conflict['compliance_status'], 'unknown')
         self.assertIsNone(conflict['standard'])
         self.assertIsNone(conflict['preferred_download_url'])
         self.assertEqual(conflict['approved_versions'], [])
@@ -308,6 +319,7 @@ class SoftwareStandardsTest(TestCase):
         data = response.json()
         self.assertEqual(data['device']['id'], other.pk)
         self.assertEqual(data['status'], 'no-standard')
+        self.assertEqual(data['compliance_status'], 'unknown')
         self.assertIsNone(data['preferred_download_url'])
 
     def test_recommendation_respects_version_object_permissions(self):
@@ -342,6 +354,8 @@ class SoftwareStandardsTest(TestCase):
         standard.preferred_version = visible
         standard.save()
         standard.approved_versions.remove(hidden)
+        DeviceSoftware.objects.create(device=self.device, software_version=visible)
         response = self.client.get(url, {'device_name': self.device.name})
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['preferred_version']['id'], visible.pk)
+        self.assertEqual(response.json()['compliance_status'], 'unknown')
