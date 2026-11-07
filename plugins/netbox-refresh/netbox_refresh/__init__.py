@@ -11,7 +11,7 @@ class RefreshConfig(PluginConfig):
     name = 'netbox_refresh'
     verbose_name = 'Lifecycle'
     description = 'Hardware and software lifecycle, licenses, and support coverage'
-    version = '0.4.0'
+    version = '0.4.1'
     author = 'Nova Team'
     author_email = 'noreply@example.com'
     base_url = 'refresh'
@@ -56,6 +56,8 @@ class RefreshConfig(PluginConfig):
 
     def ready(self):
         super().ready()
+        from netbox_refresh import signals  # noqa: F401
+
         if self.default_settings and _setting_enabled('us_dates_in_tables'):
             _localise_table_dates()
         _register_eox_system_job()

@@ -658,12 +658,7 @@ class SoftwareStandard(PrimaryModel):
     @classmethod
     def conflicting_standards(cls, device_types, platforms, valid_from, valid_to,
                               exclude_pk=None, *, device_tags=()):
-        """Standards whose validity window overlaps AND that share any scope.
-
-        This is the overlap rule the old per-scope unique constraint only
-        approximated: two standards may never both claim the same device type
-        or platform on the same day, or compliance has two answers.
-        """
+        """Find same-priority standards sharing a scope during the validity window."""
         from django.db.models import Q
         window = Q()
         if valid_to is not None:
@@ -674,6 +669,10 @@ class SoftwareStandard(PrimaryModel):
         scope = Q()
         if device_tags:
             scope = Q(device_tags__in=device_tags)
+            # A broader tagged scope can provide a fallback. A same-priority
+            # scope is a conflict only if all selected groups intersect.
+            scope &= Q(device_types__in=device_types) if device_types else Q(device_types__isnull=True)
+            scope &= Q(platforms__in=platforms) if platforms else Q(platforms__isnull=True)
         else:
             candidates = candidates.filter(device_tags__isnull=True)
             if device_types:

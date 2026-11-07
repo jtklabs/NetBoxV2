@@ -121,7 +121,7 @@ class SoftwareStandardsTest(TestCase):
         self.assertEqual(reading.standard, type_standard)
         self.assertEqual(reading.compliance_status, 'compliant')
 
-    def test_tag_scope_form_and_api_reject_mixed_and_overlapping_scopes(self):
+    def test_tag_and_platform_form_and_api_reject_overlapping_scopes(self):
         from extras.models import Tag
 
         tag = Tag.objects.create(name='Special mode', slug='special-mode')
@@ -130,10 +130,79 @@ class SoftwareStandardsTest(TestCase):
         form = self.client.get(add_url)
         self.assertContains(form, 'Device tags')
         url = reverse('plugins-api:netbox_refresh-api:softwarestandard-list')
-        payload = {'device_tags': [tag.pk], 'approved_versions': [version.pk]}
-        mixed = self.client.post(url, {**payload, 'platforms': [self.platform.pk]}, content_type='application/json')
-        self.assertEqual(mixed.status_code, 400, mixed.content)
+        payload = {'device_tags': [tag.pk], 'platforms': [self.platform.pk], 'approved_versions': [version.pk]}
         created = self.client.post(add_url, {**payload, 'valid_from': timezone.localdate().isoformat()})
         self.assertEqual(created.status_code, 302, getattr(created.context, 'form', created.context))
         duplicate = self.client.post(url, payload, content_type='application/json')
         self.assertContains(duplicate, 'overlaps', status_code=400)
+
+    def test_mode_requires_each_selected_group_and_can_choose_a_different_image_per_model(self):
+        from extras.models import Tag
+
+        from netbox_refresh.compliance import StandardResolver, standard_for_device
+        from netbox_refresh.models import SoftwareStandard
+
+        fips = Tag.objects.create(name='FIPS', slug='fips')
+        fisma = Tag.objects.create(name='FISMA', slug='fisma')
+        other_platform = Platform.objects.create(name='Other OS', slug='other-os')
+        first_model = self.device.device_type
+        second_model = DeviceType.objects.create(
+            manufacturer=first_model.manufacturer, model='BIG-IP Other', slug='big-ip-other',
+        )
+        url = reverse('plugins-api:netbox_refresh-api:softwarestandard-list')
+
+        def standard(version, **scope):
+            image = SoftwareVersion.objects.create(
+                platform=self.platform, version=version, image_url=f'https://images.example.test/{version}.img',
+            )
+            response = self.client.post(url, {
+                'device_tags': [fips.pk, fisma.pk],
+                'approved_versions': [image.pk], 'preferred_version': image.pk, **scope,
+            }, content_type='application/json')
+            self.assertEqual(response.status_code, 201, response.content)
+            return SoftwareStandard.objects.get(pk=response.json()['id'])
+
+        tmos = standard('tmos-mode', platforms=[self.platform.pk])
+        first = standard('first-model-mode', device_types=[first_model.pk])
+        second = standard('second-model-mode', device_types=[second_model.pk])
+        exact = standard('first-model-tmos-mode', device_types=[first_model.pk], platforms=[self.platform.pk])
+        device = self.device
+        resolver = StandardResolver()
+        self.assertIsNone(standard_for_device(device))
+        device.tags.add(fisma)
+        self.assertEqual(resolver.for_device(device), exact)
+        self.assertEqual(standard_for_device(device), exact)
+        self.assertContains(self.client.get(device.get_absolute_url()), exact.preferred_version.image_url)
+        self.assertNotContains(self.client.get(device.get_absolute_url()), tmos.preferred_version.image_url)
+
+        device.platform = other_platform
+        self.assertEqual(resolver.for_device(device), first)
+        self.assertEqual(standard_for_device(device), first)
+        device.device_type = second_model
+        self.assertEqual(resolver.for_device(device), second)
+        self.assertEqual(standard_for_device(device), second)
+
+        third_model = DeviceType.objects.create(
+            manufacturer=first_model.manufacturer, model='BIG-IP Third', slug='big-ip-third',
+        )
+        device.device_type = third_model
+        self.assertIsNone(resolver.for_device(device))
+        self.assertIsNone(standard_for_device(device))
+        device.platform = self.platform
+        self.assertEqual(resolver.for_device(device), tmos)
+        self.assertEqual(standard_for_device(device), tmos)
+
+    def test_deleting_a_scope_object_cannot_broaden_a_combined_standard(self):
+        from django.db import transaction
+        from django.db.models.deletion import ProtectedError
+        from extras.models import Tag
+
+        from netbox_refresh.models import SoftwareStandard
+
+        tag = Tag.objects.create(name='FIPS', slug='fips')
+        standard = SoftwareStandard.objects.create()
+        standard.device_tags.add(tag)
+        standard.platforms.add(self.platform)
+        for scope in (tag, self.platform):
+            with self.assertRaises(ProtectedError), transaction.atomic():
+                scope.delete()

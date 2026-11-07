@@ -40,7 +40,7 @@ def active_standards(on_date=None, queryset=None):
 
 
 class StandardResolver:
-    """Resolve mode tags first, followed by device type and then platform."""
+    """Resolve matching tagged scopes first, then fall back to the general scopes."""
 
     def __init__(self, on_date=None, queryset=None):
         self.on_date = on_date or date.today()
@@ -61,8 +61,11 @@ class StandardResolver:
         for standard in standards:
             tags = list(standard.device_tags.all())
             if tags:
+                types = {item.pk for item in standard.device_types.all()}
+                platforms = {item.pk for item in standard.platforms.all()}
+                priority = (bool(types), bool(platforms))
                 for tag in tags:
-                    self._by_tag[tag.pk].append(standard)
+                    self._by_tag[tag.pk].append((priority, types, platforms, standard))
                 continue
             for device_type in standard.device_types.all():
                 self._by_device_type[device_type.pk] = standard
@@ -82,9 +85,18 @@ class StandardResolver:
         if self.uses_device_tags:
             if tag_ids is None:
                 tag_ids = [tag.pk for tag in device.tags.all()]
-            matches = {standard.pk: standard for tag in tag_ids for standard in self._by_tag.get(tag, ())}
+            matches = {}
+            for tag in tag_ids:
+                for priority, types, platforms, standard in self._by_tag.get(tag, ()):
+                    if types and device.device_type_id not in types:
+                        continue
+                    if platforms and device.platform_id not in platforms:
+                        continue
+                    matches[standard.pk] = (priority, standard)
             if matches:
-                return (next(iter(matches.values())), False) if len(matches) == 1 else (None, True)
+                highest = max(priority for priority, _ in matches.values())
+                winners = [standard for priority, standard in matches.values() if priority == highest]
+                return (winners[0], False) if len(winners) == 1 else (None, True)
         standard = self._by_device_type.get(device.device_type_id) or self._by_platform.get(device.platform_id)
         return standard, False
 

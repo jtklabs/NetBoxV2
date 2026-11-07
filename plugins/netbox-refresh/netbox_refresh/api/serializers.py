@@ -165,9 +165,13 @@ class SoftwareStandardSerializer(NetBoxModelSerializer):
             raise serializers.ValidationError(
                 'A standard must cover at least one device type, platform, or device tag.'
             )
-        if device_tags and (device_types or platforms):
-            raise serializers.ValidationError('Use device tags on their own for a tag-scoped standard.')
         approved = data.get('approved_versions', list(instance.approved_versions.all()) if instance else [])
+        if device_tags and platforms:
+            allowed = {platform.pk for platform in platforms}
+            if any(version.platform_id not in allowed for version in approved):
+                raise serializers.ValidationError({
+                    'approved_versions': 'Approved versions must belong to a selected platform.',
+                })
         preferred = data.get('preferred_version', instance.preferred_version if instance else None)
         if preferred and preferred not in approved:
             raise serializers.ValidationError({

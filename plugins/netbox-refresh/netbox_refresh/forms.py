@@ -435,7 +435,7 @@ class SoftwareVersionBulkEditForm(NetBoxModelBulkEditForm):
 class SoftwareStandardForm(NetBoxModelForm):
     device_tags = DynamicModelMultipleChoiceField(
         queryset=Tag.objects.all(), required=False, label='Device tags',
-        help_text='Use this field by itself for mode-specific code. A matching tag takes precedence over device type and platform.',
+        help_text='Match any selected tag. If you also select device types or platforms, the device must match each selected group.',
     )
     device_types = DynamicModelMultipleChoiceField(
         queryset=DeviceType.objects.all(), required=False,
@@ -486,8 +486,6 @@ class SoftwareStandardForm(NetBoxModelForm):
         device_tags = self.cleaned_data.get('device_tags')
         if not (device_types or platforms or device_tags):
             raise forms.ValidationError('Select at least one device type, platform, or device tag.')
-        if device_tags and (device_types or platforms):
-            raise forms.ValidationError('Use device tags on their own for a tag-scoped standard.')
 
         # The model cannot check these on create — the M2Ms do not exist until
         # the row is saved — so they are enforced here against the submitted
@@ -504,7 +502,7 @@ class SoftwareStandardForm(NetBoxModelForm):
         # When device types are also in scope the check is skipped: the types
         # say nothing about their OS family, so a cross-family version may be
         # exactly what was meant.
-        if platforms and not device_types and approved:
+        if platforms and (device_tags or not device_types) and approved:
             allowed = {p.pk for p in platforms}
             wrong = [v for v in approved if v.platform_id not in allowed]
             if wrong:
