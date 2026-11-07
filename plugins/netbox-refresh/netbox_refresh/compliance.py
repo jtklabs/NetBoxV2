@@ -154,7 +154,7 @@ def evaluate(device_software, standard=None, resolver=None, *, conflict=False):
     return ComplianceStatusChoices.STATUS_NON_COMPLIANT
 
 
-def device_compliance_rows(devices, on_date=None):
+def device_compliance_rows(devices, on_date=None, *, software_queryset=None):
     """Compliance for a queryset of devices, including ones we know nothing about.
 
     Iterating devices rather than DeviceSoftware records is the whole point: a
@@ -167,7 +167,9 @@ def device_compliance_rows(devices, on_date=None):
     if resolver.uses_device_tags:
         prefetch_related_objects(devices, 'tags')
 
-    records = DeviceSoftware.objects.filter(
+    if software_queryset is None:
+        software_queryset = DeviceSoftware.objects.all()
+    records = software_queryset.filter(
         device__in=[d.pk for d in devices]
     ).select_related('software_version', 'software_version__platform')
     by_device = {record.device_id: record for record in records}
@@ -185,6 +187,7 @@ def device_compliance_rows(devices, on_date=None):
             'device': device,
             'record': record,
             'standard': standard,
+            'standard_conflict': conflict,
             'status': status,
             'status_label': status_label(status),
             'status_color': ComplianceStatusChoices.colors.get(status),

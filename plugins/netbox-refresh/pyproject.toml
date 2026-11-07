@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "netbox-refresh"
-version = "0.4.1"
+version = "0.4.2"
 description = "Hardware and software lifecycle, licenses, and support coverage for NetBox"
 authors = [{ name = "Nova Team" }]
 requires-python = ">=3.10"

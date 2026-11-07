@@ -206,3 +206,43 @@ class SoftwareStandardsTest(TestCase):
         for scope in (tag, self.platform):
             with self.assertRaises(ProtectedError), transaction.atomic():
                 scope.delete()
+
+    def test_missing_standard_report_uses_scope_independently_of_version_and_conflict(self):
+        from extras.models import Tag
+
+        from netbox_refresh.models import SoftwareStandard
+
+        def add_device(name, platform=None):
+            return Device.objects.create(
+                name=name, device_type=self.device.device_type, role=self.device.role,
+                site=self.device.site, platform=platform,
+            )
+
+        missing_unscanned = add_device('missing-unscanned')
+        missing_exempt = add_device('missing-exempt')
+        DeviceSoftware.objects.create(device=missing_exempt, exempt=True, exempt_reason='Lab exemption')
+        missing_observed = add_device('missing-observed')
+        version = SoftwareVersion.objects.create(platform=self.platform, version='17.5.1')
+        DeviceSoftware.objects.create(device=missing_observed, software_version=version)
+        general = SoftwareStandard.objects.create()
+        general.platforms.add(self.platform)
+        general.approved_versions.add(version)
+
+        conflicting = add_device('conflicting', platform=self.platform)
+        for name in ('FIPS', 'FISMA'):
+            tag = Tag.objects.create(name=name, slug=name.lower())
+            standard = SoftwareStandard.objects.create()
+            standard.device_tags.add(tag)
+            standard.approved_versions.add(version)
+            conflicting.tags.add(tag)
+
+        report_url = reverse('plugins:netbox_refresh:missing_software_standard_report')
+        report = self.client.get(report_url, {'site': self.device.site_id})
+        self.assertContains(report, 'Devices Without a Software Standard')
+        self.assertCountEqual(
+            [row['device'] for row in report.context['table'].data],
+            [missing_unscanned, missing_exempt, missing_observed],
+        )
+        compliance = self.client.get(reverse('plugins:netbox_refresh:compliance_report'))
+        self.assertContains(compliance, report_url)
+        self.assertEqual(compliance.context['row_count'], 5)

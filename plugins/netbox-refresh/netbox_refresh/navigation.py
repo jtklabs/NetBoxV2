@@ -48,6 +48,12 @@ compliance_report = PluginMenuItem(
     permissions=['netbox_refresh.view_devicesoftware'],
 )
 
+missing_software_standard_report = PluginMenuItem(
+    link='plugins:netbox_refresh:missing_software_standard_report',
+    link_text='Devices Without a Software Standard',
+    permissions=['netbox_refresh.view_devicesoftware', 'dcim.view_device'],
+)
+
 version_rollup = PluginMenuItem(
     link='plugins:netbox_refresh:version_rollup',
     link_text='Version Rollup',
@@ -69,7 +75,7 @@ menu = PluginMenu(
         )),
         ('Hardware', (lifecycle, replacement_prices, refresh_report)),
         ('Software', (software_versions, software_standards, device_software,
-                      compliance_report, version_rollup)),
+                      compliance_report, missing_software_standard_report, version_rollup)),
     ),
     icon_class='mdi mdi-calendar-clock',
 )

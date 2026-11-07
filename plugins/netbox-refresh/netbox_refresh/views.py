@@ -922,6 +922,11 @@ class ComplianceReportView(PermissionRequiredMixin, View):
 
     permission_required = 'netbox_refresh.view_devicesoftware'
     template_name = 'netbox_refresh/compliance_report.html'
+    missing_standard = False
+
+    def get_permission_required(self):
+        permissions = super().get_permission_required()
+        return (*permissions, 'dcim.view_device') if self.missing_standard else permissions
 
     def get(self, request):
         form = forms.ComplianceReportForm(request.GET or None)
@@ -931,6 +936,10 @@ class ComplianceReportView(PermissionRequiredMixin, View):
         devices = Device.objects.select_related(
             'site', 'device_type', 'device_type__manufacturer', 'platform', 'role'
         )
+        software = None
+        if self.missing_standard:
+            devices = devices.restrict(request.user, 'view')
+            software = DeviceSoftware.objects.restrict(request.user, 'view')
         if data.get('site'):
             devices = devices.filter(site__in=data['site'])
         if data.get('role'):
@@ -942,7 +951,9 @@ class ComplianceReportView(PermissionRequiredMixin, View):
         if data.get('device_type'):
             devices = devices.filter(device_type__in=data['device_type'])
 
-        rows = compliance.device_compliance_rows(devices, on_date=data.get('as_of'))
+        rows = compliance.device_compliance_rows(devices, on_date=data.get('as_of'), software_queryset=software)
+        if self.missing_standard:
+            rows = [row for row in rows if row['standard'] is None and not row['standard_conflict']]
         summary = compliance.summarise(rows)
 
         wanted = data.get('status')
@@ -951,6 +962,8 @@ class ComplianceReportView(PermissionRequiredMixin, View):
 
         rows.sort(key=lambda row: (row['status'], str(row['device'])))
         stale_count = sum(1 for row in rows if row['is_stale'])
+        scope = request.GET.copy()
+        scope.pop('status', None)
 
         return render(request, self.template_name, {
             'form': form,
@@ -961,6 +974,8 @@ class ComplianceReportView(PermissionRequiredMixin, View):
             'stale_count': stale_count,
             'as_of': data.get('as_of'),
             'filtered': bool(wanted),
+            'missing_standard': self.missing_standard,
+            'scope_query': scope.urlencode(),
         })
 
 

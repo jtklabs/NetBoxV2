@@ -106,6 +106,8 @@ urlpatterns = [
 
     path('report/', views.RefreshReportView.as_view(), name='refresh_report'),
     path('compliance/', views.ComplianceReportView.as_view(), name='compliance_report'),
+    path('compliance/no-standard/', views.ComplianceReportView.as_view(missing_standard=True),
+         name='missing_software_standard_report'),
     path('compliance/rollup/', views.VersionRollupView.as_view(), name='version_rollup'),
     path('sync/cisco/', views.CiscoSyncView.as_view(), name='cisco_sync'),
 ] + coverage.urlpatterns

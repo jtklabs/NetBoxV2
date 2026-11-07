@@ -2,15 +2,25 @@
 {% load helpers %}
 {% load render_table from django_tables2 %}
 
-{% block title %}Software Compliance Report{% endblock %}
+{% block title %}{% if missing_standard %}Devices Without a Software Standard{% else %}Software Compliance Report{% endif %}{% endblock %}
 
 {% block content %}
+  {% if missing_standard %}
+    <p>Includes devices with no applicable software standard, even when their running version is unknown or they are exempt. Conflicting tag standards appear in the Compliance Report.</p>
+  {% endif %}
   <div class="row mb-3">
     <div class="col col-md-12">
       <div class="card">
         <h5 class="card-header">
           Filter
           <div class="card-actions">
+            {% if missing_standard %}
+              <a href="{% url 'plugins:netbox_refresh:compliance_report' %}?{{ scope_query }}"
+                 class="btn btn-sm btn-ghost-primary">Software Compliance Report</a>
+            {% elif perms.dcim.view_device %}
+              <a href="{% url 'plugins:netbox_refresh:missing_software_standard_report' %}?{{ scope_query }}"
+                 class="btn btn-sm btn-ghost-primary">Devices Without a Software Standard</a>
+            {% endif %}
             <a href="{% url 'plugins:netbox_refresh:version_rollup' %}?{{ request.GET.urlencode }}"
                class="btn btn-sm btn-ghost-primary">
               <i class="mdi mdi-chart-bar" aria-hidden="true"></i> Version rollup
@@ -28,8 +38,7 @@
             {% endfor %}
             <div class="col-md-12">
               <button type="submit" class="btn btn-primary">Run report</button>
-              <a href="{% url 'plugins:netbox_refresh:compliance_report' %}"
-                 class="btn btn-outline-secondary">Reset</a>
+              <a href="{{ request.path }}" class="btn btn-outline-secondary">Reset</a>
             </div>
           </form>
         </div>
