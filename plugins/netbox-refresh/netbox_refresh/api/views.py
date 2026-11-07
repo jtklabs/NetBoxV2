@@ -6,6 +6,7 @@ standard NetBox CRUD.
 """
 
 from dcim.models import Device, Platform
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from netbox.api.viewsets import NetBoxModelViewSet
@@ -118,6 +119,7 @@ class DeviceSoftwareViewSet(NetBoxModelViewSet):
         return Response({'summary': summary, 'results': results}, status=status.HTTP_200_OK)
 
     # ------------------------------------------------------------------ #
+    @transaction.atomic
     def _apply_report(self, item):
         device = self._resolve_device(item)
         if device is None:
@@ -130,6 +132,14 @@ class DeviceSoftwareViewSet(NetBoxModelViewSet):
         raw_version = (item.get('version') or '').strip()
         now = timezone.now()
         collected_at = item.get('collected_at') or now
+        record = DeviceSoftware.objects.filter(device=device).first()
+        if record and record.collected_at and collected_at < record.collected_at:
+            return {
+                'device': device.name or device.pk,
+                'id': record.pk,
+                'version': record.raw_version or None,
+                'result': 'stale',
+            }
 
         software_version = None
         if raw_version:
@@ -148,7 +158,6 @@ class DeviceSoftwareViewSet(NetBoxModelViewSet):
                 platform=platform, version=raw_version,
             )
 
-        record = DeviceSoftware.objects.filter(device=device).first()
         if record is None:
             record = DeviceSoftware(device=device)
 
@@ -187,14 +196,17 @@ class DeviceSoftwareViewSet(NetBoxModelViewSet):
         }
 
     def _resolve_device(self, item):
+        # Serialize reports for the same device, including its first reading
+        # when there is no DeviceSoftware row to lock yet.
+        devices = Device.objects.select_for_update()
         if item.get('device'):
-            return Device.objects.filter(pk=item['device']).first()
+            return devices.filter(pk=item['device']).first()
         name = (item.get('device_name') or '').strip()
         if not name:
             return None
         # Device names are not unique across sites in NetBox, so an ambiguous
         # name is treated as unresolvable rather than silently picking one.
-        matches = list(Device.objects.filter(name__iexact=name)[:2])
+        matches = list(devices.filter(name__iexact=name)[:2])
         return matches[0] if len(matches) == 1 else None
 
     def _resolve_platform(self, item, device):

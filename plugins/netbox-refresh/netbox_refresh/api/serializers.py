@@ -214,7 +214,7 @@ class SoftwareReportSerializer(serializers.Serializer):
         required=False, allow_blank=True, help_text='Used when no device ID is given'
     )
     version = serializers.CharField(
-        required=False, allow_blank=True, trim_whitespace=True,
+        required=False, allow_blank=True, trim_whitespace=True, max_length=100,
         help_text='Raw version string. Omit or send "" when nothing was collected — '
                   'never a placeholder, which would be stored as a real version.',
     )
