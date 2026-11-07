@@ -1,0 +1,25 @@
+name: Apache config
+on:
+  pull_request:
+    paths:
+      - 'apache/netbox.conf'
+      - 'env/netbox.env.example'
+      - 'testing/apache-header-spoof/**'
+      - '.github/workflows/apache-config.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apache/netbox.conf'
+      - 'env/netbox.env.example'
+      - 'testing/apache-header-spoof/**'
+      - '.github/workflows/apache-config.yml'
+permissions:
+  contents: read
+jobs:
+  header-spoof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Client identity headers never reach NetBox
+        run: testing/apache-header-spoof/run.sh

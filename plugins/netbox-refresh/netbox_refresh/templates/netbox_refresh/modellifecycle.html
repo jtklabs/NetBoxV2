@@ -1,0 +1,144 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Hardware Model</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Model</th><td>{{ object.assigned_object|linkify }}</td></tr>
+            <tr><th>Type</th><td>{{ object.assigned_object_type.name|capfirst }}</td></tr>
+            <tr><th>Manufacturer</th><td>{{ object.manufacturer|linkify|placeholder }}</td></tr>
+            <tr><th>Part number</th><td>{{ object.part_number|placeholder }}</td></tr>
+            <tr><th>Status</th>
+              <td>{% badge object.get_status_display bg_color=object.get_status_color %}</td></tr>
+            <tr><th>Installed units</th><td>{{ object.installed_count }}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h5 class="card-header">Lifecycle Dates</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Announced</th><td>{{ object.announcement_date|placeholder }}</td></tr>
+            <tr><th>End of sale</th><td>{{ object.end_of_sale|placeholder }}</td></tr>
+            <tr><th>End of SW maintenance</th><td>{{ object.end_of_sw_maintenance|placeholder }}</td></tr>
+            <tr><th>End of security support</th><td>{{ object.end_of_security_support|placeholder }}</td></tr>
+            <tr><th>End of failure analysis</th><td>{{ object.end_of_routine_failure_analysis|placeholder }}</td></tr>
+            <tr><th>End of service attach</th><td>{{ object.end_of_service_attach|placeholder }}</td></tr>
+            <tr><th>End of contract renewal</th><td>{{ object.end_of_service_contract_renewal|placeholder }}</td></tr>
+            <tr><th>End of support</th><td>{{ object.end_of_support|placeholder }}</td></tr>
+            <tr><th>Functional end of life</th><td><strong>{{ object.effective_end_of_life|placeholder }}</strong></td></tr>
+          </table>
+        </div>
+      </div>
+      {% plugin_left_page object %}
+      {% include 'inc/panels/tags.html' %}
+    </div>
+
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Replacement</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Replacement model</th><td>{{ object.replacement|linkify|placeholder }}</td></tr>
+            <tr><th>Unit cost</th>
+              <td>{% if object.replacement_cost is not None %}{{ object.replacement_cost }} {{ object.currency }}{% else %}{{ ''|placeholder }}{% endif %}</td></tr>
+            <tr><th>Total to replace all</th>
+              <td>{% if object.extended_cost is not None %}<strong>{{ object.extended_cost }} {{ object.currency }}</strong>{% else %}{{ ''|placeholder }}{% endif %}</td></tr>
+            <tr><th>Cost updated</th><td>{{ object.cost_updated|placeholder }}</td></tr>
+            <tr><th>Notes</th><td>{{ object.replacement_notes|placeholder|linebreaksbr }}</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h5 class="card-header">Source</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Data source</th>
+              <td>{% badge object.get_source_display bg_color=object.get_source_color %}</td></tr>
+            <tr><th>Last synced</th><td>{{ object.last_synced|placeholder }}</td></tr>
+            <tr><th>EoL last checked</th>
+              <td>{{ object.last_checked|placeholder }}
+                {% if not object.has_any_date and object.checked_on %}
+                  <span class="text-muted">&mdash; nothing announced as of this date</span>
+                {% elif not object.has_any_date %}
+                  <span class="text-warning">&mdash; never checked</span>
+                {% endif %}</td></tr>
+            <tr><th>Bulletin</th>
+              <td>{% if object.bulletin_url %}<a href="{{ object.bulletin_url }}">{{ object.bulletin_number|default:'Product bulletin' }}</a>{% else %}{{ object.bulletin_number|placeholder }}{% endif %}</td></tr>
+            <tr><th>Description</th><td>{{ object.description|placeholder }}</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h5 class="card-header">
+          Replacement Prices{% if object.replacement %} &mdash; {{ object.replacement }}{% endif %}
+          {% if object.replacement_device_type_id and perms.netbox_refresh.add_replacementprice %}
+            <div class="card-actions">
+              <a href="{% url 'plugins:netbox_refresh:replacementprice_worksheet' %}?device_type={{ object.replacement_device_type_id }}"
+                 class="btn btn-ghost-primary btn-sm">
+                <i class="mdi mdi-table-edit"></i> Worksheet
+              </a>
+            </div>
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          {# What the NEW model costs, per place. Prices key to the model #}
+          {# being bought, so every lifecycle replaced by it shares these. #}
+          {% if object.replacement %}
+            {% if object.replacement.replacement_prices.all %}
+              <table class="table table-hover attr-table">
+                {% for price in object.replacement.replacement_prices.all %}
+                  <tr>
+                    <td>{{ price.scope|linkify }}</td>
+                    <td><a href="{{ price.get_absolute_url }}">{{ price.cost }} {{ price.currency }}</a></td>
+                    <td>{{ price.cost_updated|placeholder }}</td>
+                  </tr>
+                {% endfor %}
+              </table>
+              <div class="form-text">
+                Most specific wins: a site price beats its region's, which beats
+                the baseline cost above.
+              </div>
+            {% else %}
+              <span class="text-muted">No regional prices yet &mdash; the baseline
+                cost above applies everywhere</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">Set a replacement model to price it by
+              region and site; until then the baseline cost applies.</span>
+          {% endif %}
+        </div>
+      </div>
+      {% include 'inc/panels/custom_fields.html' %}
+      {% include 'inc/panels/comments.html' %}
+      {% plugin_right_page object %}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">Installed Units</h5>
+        <div class="card-body">
+          {% if installed %}
+            <ul class="list-inline">
+              {% for item in installed %}
+                <li class="list-inline-item">{{ item|linkify }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <span class="text-muted">No units of this model are installed</span>
+          {% endif %}
+        </div>
+      </div>
+      {% plugin_full_width_page object %}
+    </div>
+  </div>
+{% endblock %}

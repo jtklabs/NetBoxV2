@@ -1,0 +1,51 @@
+{% load helpers %}
+{# The software standard in force for this device type / platform. #}
+
+<div class="card">
+  <h5 class="card-header">
+    Software Standard
+    <div class="card-actions">
+      {% if standard %}
+        <a href="{{ standard.get_absolute_url }}" class="btn btn-sm btn-ghost-primary">
+          <i class="mdi mdi-chevron-right-box-outline" aria-hidden="true"></i> Details
+        </a>
+      {% endif %}
+    </div>
+  </h5>
+  {% if standard %}
+    <table class="table table-hover attr-table">
+      <tr>
+        <td>Approved</td>
+        <td>
+          {% for version in standard.approved_versions.all %}
+            <a href="{{ version.get_absolute_url }}">{{ version.version }}</a>{% if version.download_url %}
+              <a href="{{ version.download_url }}"
+                 title="Download {{ version.image_filename|default:'image' }}">
+                <i class="mdi mdi-download" aria-hidden="true"></i>
+              </a>{% endif %}{% if not forloop.last %}, {% endif %}
+          {% empty %}
+            <span class="text-muted">none listed</span>
+          {% endfor %}
+        </td>
+      </tr>
+      <tr>
+        <td>Preferred</td>
+        <td>
+          {{ standard.preferred_version|linkify|placeholder }}
+          {% if standard.preferred_version.download_url %}
+            <a href="{{ standard.preferred_version.download_url }}" class="ms-1"
+               title="Download {{ standard.preferred_version.image_filename|default:'image' }}">
+              <i class="mdi mdi-download" aria-hidden="true"></i>
+            </a>
+          {% endif %}
+        </td>
+      </tr>
+      <tr><td>Adopted</td><td>{{ standard.valid_from }}</td></tr>
+    </table>
+  {% else %}
+    <div class="card-body">
+      <span class="text-muted">No software standard in force</span>
+      <a href="{% url 'plugins:netbox_refresh:softwarestandard_add' %}" class="ms-1">Define one</a>
+    </div>
+  {% endif %}
+</div>

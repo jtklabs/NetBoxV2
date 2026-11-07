@@ -1,0 +1,35 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Support Contract</h5>
+        <table class="table table-hover attr-table">
+          <tr><th>Provider</th><td>{{ object.provider }}</td></tr>
+          <tr><th>Reference</th><td>{{ object.reference }}</td></tr>
+          <tr><th>Service level</th><td>{{ object.service_level|placeholder }}</td></tr>
+          <tr><th>Coverage</th><td>{{ object.coverage_status }}</td></tr>
+          <tr><th>Starts</th><td>{{ object.starts_on|placeholder }}</td></tr>
+          <tr><th>Ends</th><td>{{ object.ends_on|placeholder }}</td></tr>
+          <tr><th>Renew by</th><td>{{ object.renew_by|placeholder }}</td></tr>
+          <tr><th>Source</th><td>{{ object.source_url|urlize|placeholder }}</td></tr>
+        </table>
+      </div>
+      {% include 'inc/panels/tags.html' %}
+      {% include 'inc/panels/comments.html' %}
+    </div>
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Covered Devices</h5>
+        <table class="table table-hover">
+          {% for device in devices %}
+            <tr><td>{{ device|linkify }}</td></tr>
+          {% empty %}
+            <tr><td>No visible devices</td></tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+{% endblock %}

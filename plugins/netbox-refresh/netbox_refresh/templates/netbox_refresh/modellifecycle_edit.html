@@ -1,0 +1,7 @@
+{% extends 'generic/object_edit.html' %}
+{% load static %}
+
+{% block javascript %}
+  {{ block.super }}
+  <script defer src="{% static 'netbox_refresh/functional-eol.js' %}"></script>
+{% endblock javascript %}

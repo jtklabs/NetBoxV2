@@ -1,0 +1,4 @@
+*
+!plugins/netbox-refresh/netbox_refresh/
+plugins/netbox-refresh/netbox_refresh/tests/
+**/__pycache__

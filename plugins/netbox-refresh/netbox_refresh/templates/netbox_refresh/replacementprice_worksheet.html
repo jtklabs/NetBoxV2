@@ -1,0 +1,134 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load form_helpers %}
+
+{% block title %}Price Worksheet{% if device_type %} — {{ device_type }}{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="row mb-3">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">Replacement model</h5>
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-6">
+              {{ picker.device_type.label_tag }}
+              {{ picker.device_type }}
+              <div class="form-text">{{ picker.device_type.help_text }}</div>
+            </div>
+            <div class="col-md-2">
+              <button type="submit" class="btn btn-primary">Open</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if device_type %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="device_type" value="{{ device_type.pk }}" />
+
+      <div class="row mb-3">
+        <div class="col col-md-12">
+          <div class="card">
+            <h5 class="card-header">
+              {{ device_type|linkify }} replaces
+              {{ feeders|length }} model{{ feeders|length|pluralize }} &mdash;
+              {{ total_units }} unit{{ total_units|pluralize }} to price
+            </h5>
+            <div class="card-body">
+              {% if feeders %}
+                {% for feeder in feeders %}
+                  <a href="{{ feeder.get_absolute_url }}">{{ feeder }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+              {% else %}
+                <span class="text-muted">No lifecycle names this model as its
+                  replacement yet, so there are no sites to list &mdash; prices
+                  entered below still apply once one does.</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col col-md-12">
+          <div class="card">
+            <h5 class="card-header">Region prices</h5>
+            <div class="card-body table-responsive">
+              <table class="table table-hover">
+                <thead><tr><th>Region</th><th style="width: 12rem">Unit price</th><th style="width: 6rem">Currency</th></tr></thead>
+                <tbody>
+                  {% for row in region_rows %}
+                    <tr>
+                      <td>{{ row.label }}</td>
+                      <td><input type="text" class="form-control form-control-sm"
+                                 name="region_cost_{{ row.region.pk }}" value="{{ row.cost }}"
+                                 placeholder="inherit / baseline" /></td>
+                      <td><input type="text" class="form-control form-control-sm"
+                                 name="region_currency_{{ row.region.pk }}" value="{{ row.currency }}" maxlength="3" /></td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="3" class="text-muted">No regions involved</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div class="form-text">
+                A region price covers every site at or below it. Blank means
+                sites under it fall through to an enclosing region or the
+                outgoing model's baseline cost.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col col-md-12">
+          <div class="card">
+            <h5 class="card-header">Site prices</h5>
+            <div class="card-body table-responsive">
+              <table class="table table-hover">
+                <thead><tr><th>Site</th><th>Units</th><th>Currently resolves to</th><th style="width: 12rem">Site override</th><th style="width: 6rem">Currency</th></tr></thead>
+                <tbody>
+                  {% for group in site_groups %}
+                    <tr class="table-light"><th colspan="5">{{ group.label }}</th></tr>
+                    {% for row in group.sites %}
+                      <tr>
+                        <td>{{ row.site|linkify }}</td>
+                        <td>{{ row.units }}</td>
+                        <td class="text-muted">{{ row.inherited }}</td>
+                        <td><input type="text" class="form-control form-control-sm"
+                                   name="site_cost_{{ row.site.pk }}" value="{{ row.cost }}"
+                                   placeholder="inherit" /></td>
+                        <td><input type="text" class="form-control form-control-sm"
+                                   name="site_currency_{{ row.site.pk }}" value="{{ row.currency }}" maxlength="3" /></td>
+                      </tr>
+                    {% endfor %}
+                  {% empty %}
+                    <tr><td colspan="5" class="text-muted">No sites hold hardware this model replaces</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div class="form-text">
+                Leave a site blank to inherit &mdash; that is the checkbox you
+                asked for, without a checkbox. Clearing a filled site puts it
+                back to inheriting.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col col-md-12">
+          <button type="submit" class="btn btn-primary">Save worksheet</button>
+          <a href="{% url 'plugins:netbox_refresh:replacementprice_list' %}?device_type_id={{ device_type.pk }}"
+             class="btn btn-outline-secondary">View as records</a>
+        </div>
+      </div>
+    </form>
+  {% endif %}
+{% endblock %}

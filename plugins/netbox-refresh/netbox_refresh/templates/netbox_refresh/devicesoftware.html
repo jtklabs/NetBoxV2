@@ -1,0 +1,100 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Running Software</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Device</th><td>{{ object.device|linkify }}</td></tr>
+            <tr><th>Version</th>
+              <td>{% if object.software_version %}{{ object.software_version|linkify }}
+                  {% elif object.raw_version %}<code>{{ object.raw_version }}</code>
+                    <span class="text-muted">(not in the version catalogue)</span>
+                  {% else %}<span class="text-muted">Never collected</span>{% endif %}</td></tr>
+            <tr><th>Compliance</th>
+              <td>{% badge object.get_compliance_status_display bg_color=object.get_compliance_status_color %}</td></tr>
+            <tr><th>Standard</th>
+              <td>{% if object.standard %}{{ object.standard|linkify }}
+                  {% else %}<span class="text-muted">None defined for this device</span>{% endif %}</td></tr>
+          </table>
+        </div>
+      </div>
+      {% include 'inc/panels/tags.html' %}
+      {% plugin_left_page object %}
+    </div>
+
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Provenance</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Source</th>
+              <td>{% badge object.get_source_display bg_color=object.get_source_color %}</td></tr>
+            <tr><th>Collected at</th><td>{{ object.collected_at|placeholder }}</td></tr>
+            <tr><th>Last confirmed</th><td>{{ object.last_checked|placeholder }}</td></tr>
+            <tr><th>Freshness</th>
+              <td>
+                {% if object.is_stale %}
+                  <span class="text-warning">
+                    <i class="mdi mdi-clock-alert-outline" aria-hidden="true"></i>
+                    Stale — last confirmed {{ object.age_days }} days ago
+                  </span>
+                {% elif object.age_days is not None %}
+                  Confirmed {{ object.age_days }} day{{ object.age_days|pluralize }} ago
+                {% else %}
+                  {{ ''|placeholder }}
+                {% endif %}
+              </td></tr>
+          </table>
+        </div>
+      </div>
+
+      {% if object.raw_report %}
+        <div class="card">
+          <h5 class="card-header">Collector Output</h5>
+          <div class="card-body">
+            <pre class="mb-0"><code>{{ object.raw_report }}</code></pre>
+          </div>
+        </div>
+      {% endif %}
+      {% include 'inc/panels/custom_fields.html' %}
+      {% include 'inc/panels/comments.html' %}
+      {% plugin_right_page object %}
+    </div>
+  </div>
+
+  {% if object.exempt %}
+    <div class="row">
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">
+            Do Not Upgrade
+            {% if object.exemption_expired %}
+              {% badge 'Review overdue' bg_color='orange' %}
+            {% endif %}
+          </h5>
+          <div class="card-body">
+            <table class="table table-hover attr-table">
+              <tr><th>Reason</th><td>{{ object.exempt_reason|linebreaksbr|placeholder }}</td></tr>
+              <tr><th>Approved by</th><td>{{ object.exempt_approved_by|placeholder }}</td></tr>
+              <tr><th>Approved on</th><td>{{ object.exempt_approved_on|placeholder }}</td></tr>
+              <tr><th>Review by</th>
+                <td>{% if object.exempt_review_by %}
+                      {% if object.exemption_expired %}
+                        <span class="text-warning">{{ object.exempt_review_by }} — overdue</span>
+                      {% else %}{{ object.exempt_review_by }}{% endif %}
+                    {% else %}
+                      <span class="text-warning">Not set — this exemption has no end</span>
+                    {% endif %}</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+  {% plugin_full_width_page object %}
+{% endblock %}

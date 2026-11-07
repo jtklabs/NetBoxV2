@@ -1,0 +1,55 @@
+{% extends 'generic/object_list.html' %}
+{% load helpers %}
+{% load render_table from django_tables2 %}
+
+{# The list page, plus the one thing the generic page cannot offer: a button #}
+{# to run the Cisco EoX sync now. It POSTs (the sync is a job enqueue, not a #}
+{# page), is gated on change permission, and is disabled — with the reason — #}
+{# when no credentials are configured, so nobody enqueues a job that can only #}
+{# fail. The scheduled weekly run needs no button; this is for "I just added #}
+{# twenty device types" and "did the bulletin land yet". #}
+{% block extra_controls %}
+  {% if perms.netbox_refresh.change_modellifecycle %}
+    {% if cisco_configured %}
+      <form method="post" action="{% url 'plugins:netbox_refresh:cisco_sync' %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary"
+                title="Look up every Cisco device and module type with a part number in the Cisco EoX API now. Runs as a background job; progress under Operations › Jobs.">
+          <i class="mdi mdi-cloud-download"></i> Sync from Cisco
+        </button>
+      </form>
+    {% else %}
+      <button type="button" class="btn btn-primary" disabled
+              title="Cisco Support API credentials are not configured (CISCO_CLIENT_ID / CISCO_CLIENT_SECRET). Set them and restart; the sync then also runs on its own schedule.">
+        <i class="mdi mdi-cloud-off-outline"></i> Sync from Cisco
+      </button>
+    {% endif %}
+  {% endif %}
+{% endblock %}
+
+{# Below the configured lifecycles: every hardware model that has none. A list #}
+{# of what is configured cannot show what is missing, and the missing models  #}
+{# are where the unplanned refreshes come from. Same search and manufacturer  #}
+{# filter as the list above, so the two halves answer the same question.     #}
+{% block content %}
+  {{ block.super }}
+  <div class="row mt-3">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">
+          Hardware models with no lifecycle
+          <span class="badge text-bg-secondary ms-1">{{ unconfigured_table.rows|length }}</span>
+        </h5>
+        <div class="card-body table-responsive">
+          <p class="text-muted small">
+            Every device and module type in NetBox that no lifecycle has been
+            written for, installed units first. Add one to move the model into
+            the list above; the Cisco sync fills in dates for Cisco models with
+            a part number.
+          </p>
+          {% render_table unconfigured_table %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}

@@ -1,0 +1,98 @@
+{% load helpers %}
+{# Running software + compliance, shown on the device page itself. #}
+
+<div class="card">
+  <h5 class="card-header">
+    Software
+    <div class="card-actions">
+      {% if software %}
+        <a href="{{ software.get_absolute_url }}" class="btn btn-sm btn-ghost-primary">
+          <i class="mdi mdi-chevron-right-box-outline" aria-hidden="true"></i> Details
+        </a>
+      {% else %}
+        <a href="{% url 'plugins:netbox_refresh:devicesoftware_add' %}?device={{ device.pk }}"
+           class="btn btn-sm btn-ghost-primary">
+          <i class="mdi mdi-plus-thick" aria-hidden="true"></i> Record version
+        </a>
+      {% endif %}
+    </div>
+  </h5>
+    <table class="table table-hover attr-table">
+      <tr>
+        <td>Compliance</td>
+        <td>
+          {% badge status_label bg_color=status_color %}
+          {% if software.is_stale %}
+            <span class="text-warning ms-1" title="Not confirmed recently">
+              <i class="mdi mdi-clock-alert-outline" aria-hidden="true"></i> stale
+            </span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td>Running</td>
+        <td>
+          {% if software.software_version %}
+            {{ software.software_version|linkify }}
+            {% if software.software_version.download_url and not standard.device_tags.all and not standard_conflict %}
+              <a href="{{ software.software_version.download_url }}" class="ms-1"
+                 title="Download {{ software.software_version.image_filename|default:'image' }}">
+                <i class="mdi mdi-download" aria-hidden="true"></i>
+              </a>
+            {% endif %}
+          {% elif software.raw_version %}<code>{{ software.raw_version }}</code>
+          {% else %}<span class="text-muted">Never collected</span>{% endif %}
+        </td>
+      </tr>
+      {% if software.software_version.end_of_support %}
+        <tr><td>Software support ends</td><td>{{ software.software_version.end_of_support }}</td></tr>
+      {% endif %}
+      <tr>
+        {# The images people actually want from a device page: what it should #}
+        {# be running, one click from the device itself.                      #}
+        <td>Approved</td>
+        <td>
+            {% if standard_conflict %}
+              <span class="text-warning">Resolve the matching device tag standards before choosing an image.</span>
+            {% elif standard %}
+              <div class="mb-1">{{ standard|linkify }}</div>
+              {% for version in standard.approved_versions.all %}
+                <a href="{{ version.get_absolute_url }}">{{ version.version }}</a>{% if version.pk == standard.preferred_version_id %} <span class="text-muted small">(preferred)</span>{% endif %}{% if version.download_url %}
+                  <a href="{{ version.download_url }}"
+                     title="Download {{ version.image_filename|default:'image' }}">
+                    <i class="mdi mdi-download" aria-hidden="true"></i>
+                  </a>{% endif %}{% if not forloop.last %}, {% endif %}
+              {% empty %}
+                <span class="text-muted">none listed</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted">No standard defined</span>
+            {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <td>Confirmed</td>
+        <td>
+          {% if software.as_of %}{{ software.as_of|date:"Y-m-d" }}
+            <span class="text-muted">via {{ software.get_source_display }}</span>
+          {% else %}{{ ''|placeholder }}{% endif %}
+        </td>
+      </tr>
+      {% if software.exempt %}
+        <tr>
+          <td>Do not upgrade</td>
+          <td>
+            {{ software.exempt_reason|truncatechars:120 }}
+            {% if software.exempt_review_by %}
+              <div class="form-text">
+                Review by {{ software.exempt_review_by }}{% if software.exemption_expired %}
+                  <span class="text-warning">— overdue</span>{% endif %}
+              </div>
+            {% else %}
+              <div class="form-text text-warning">No review date set</div>
+            {% endif %}
+          </td>
+        </tr>
+      {% endif %}
+    </table>
+</div>

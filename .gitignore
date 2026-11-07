@@ -1,0 +1,5 @@
+# Real settings and secrets; only the *.example files are committed.
+.env
+env/*.env
+docker-compose.override.yml
+**/__pycache__/

@@ -1,0 +1,101 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load render_table from django_tables2 %}
+
+{% block title %}{% if missing_standard %}Devices Without a Software Standard{% else %}Software Compliance Report{% endif %}{% endblock %}
+
+{% block content %}
+  {% if missing_standard %}
+    <p>Includes devices with no applicable software standard, even when their running version is unknown or they are exempt. Conflicting tag standards appear in the Compliance Report.</p>
+  {% endif %}
+  <div class="row mb-3">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">
+          Filter
+          <div class="card-actions">
+            {% if missing_standard %}
+              <a href="{% url 'plugins:netbox_refresh:compliance_report' %}?{{ scope_query }}"
+                 class="btn btn-sm btn-ghost-primary">Software Compliance Report</a>
+            {% elif perms.dcim.view_device %}
+              <a href="{% url 'plugins:netbox_refresh:missing_software_standard_report' %}?{{ scope_query }}"
+                 class="btn btn-sm btn-ghost-primary">Devices Without a Software Standard</a>
+            {% endif %}
+            <a href="{% url 'plugins:netbox_refresh:version_rollup' %}?{{ request.GET.urlencode }}"
+               class="btn btn-sm btn-ghost-primary">
+              <i class="mdi mdi-chart-bar" aria-hidden="true"></i> Version rollup
+            </a>
+          </div>
+        </h5>
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end">
+            {% for field in form %}
+              <div class="col-md-4">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              </div>
+            {% endfor %}
+            <div class="col-md-12">
+              <button type="submit" class="btn btn-primary">Run report</button>
+              <a href="{{ request.path }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Every state is shown, including the ones that are not failures. A device #}
+  {# we have never scanned is Unknown, not Compliant, and an exempt device is #}
+  {# counted here rather than dropped from the report.                        #}
+  <div class="row mb-3">
+    {% for item in summary %}
+      <div class="col">
+        <div class="card">
+          <div class="card-body text-center">
+            <h2 class="mb-0">{{ item.count }}</h2>
+            <div>{% badge item.label bg_color=item.color %}</div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if stale_count or as_of %}
+    <div class="row mb-3">
+      <div class="col col-md-12">
+        {% if stale_count %}
+          <div class="alert alert-warning">
+            <i class="mdi mdi-clock-alert-outline" aria-hidden="true"></i>
+            {{ stale_count }} of these device{{ stale_count|pluralize }} have a running
+            version that has not been confirmed recently. Their compliance is only as
+            current as the last reading.
+          </div>
+        {% endif %}
+        {% if as_of %}
+          <div class="alert alert-info">
+            Showing the standard in force on <strong>{{ as_of }}</strong>, compared
+            against each device's <em>current</em> running version — historical running
+            versions are not snapshotted, so this answers "what would have been
+            required", not "what was true then".
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="row">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">
+          {{ row_count }} device{{ row_count|pluralize }}
+          {% if filtered %}<span class="text-muted">(filtered by state, of {{ total_devices }})</span>{% endif %}
+        </h5>
+        <div class="card-body table-responsive">
+          {% render_table table %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

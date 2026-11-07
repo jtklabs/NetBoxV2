@@ -1,0 +1,128 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load form_helpers %}
+{% load render_table from django_tables2 %}
+
+{% block title %}Hardware Lifecycle Report{% endblock %}
+
+{% block content %}
+  <div class="row mb-3">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">Filter</h5>
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end">
+            {% for field in form %}
+              <div class="col-md-4">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              </div>
+            {% endfor %}
+            <div class="col-md-12">
+              <button type="submit" class="btn btn-primary">Run report</button>
+              {# The same filters and breakdown, as a file: the rows the page shows. #}
+              <button type="submit" name="export" value="csv" class="btn btn-outline-primary">
+                <i class="mdi mdi-download" aria-hidden="true"></i> Export CSV
+              </button>
+              <a href="{% url 'plugins:netbox_refresh:refresh_report' %}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col col-md-4">
+      <div class="card">
+        <h5 class="card-header">Replacement cost</h5>
+        <div class="card-body">
+          {% if totals %}
+            {% for currency, amount in totals.items %}
+              <h2 class="mb-0">{{ amount|floatformat:2 }} <small class="text-muted">{{ currency }}</small></h2>
+            {% endfor %}
+          {% else %}
+            <h2 class="mb-0 text-muted">—</h2>
+          {% endif %}
+          {% if missing_cost %}
+            <div class="form-text text-warning">
+              {{ unpriced_units }} unit{{ unpriced_units|pluralize }} across
+              {{ missing_cost }} model{{ missing_cost|pluralize }} have no price
+              anywhere &mdash; not at their site, region, or as a baseline &mdash;
+              so the total is understated.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col col-md-4">
+      <div class="card">
+        <h5 class="card-header">Models affected</h5>
+        <div class="card-body"><h2 class="mb-0">{{ row_count }}</h2></div>
+      </div>
+    </div>
+    <div class="col col-md-4">
+      <div class="card">
+        <h5 class="card-header">Units to replace</h5>
+        <div class="card-body">
+          <h2 class="mb-0">{{ total_units }}</h2>
+          <div class="form-text">across {{ site_count }} site{{ site_count|pluralize }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">Cost by region</h5>
+        <div class="card-body table-responsive">
+          {# Each unit priced at its own site's rate — site price, else the #}
+          {# nearest enclosing region's, else the model's baseline. Currencies #}
+          {# are never converted; each keeps its own total. #}
+          {% render_table region_table %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if breakdown == 'site' %}
+    <div class="row mb-3">
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">Cost by site</h5>
+          <div class="card-body table-responsive">
+            {# Each site's units at that site's resolved price, per currency. #}
+            {% render_table site_cost_table %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">
+            Refresh needed by site &mdash; {{ date_label|default:"End of support" }} in the selected window
+          </h5>
+          <div class="card-body table-responsive">
+            {# One row per site and model, site by site, soonest milestone first. #}
+            {% render_table site_table %}
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="row">
+      <div class="col col-md-12">
+        <div class="card">
+          <h5 class="card-header">{{ date_label|default:"End of support" }} in the selected window</h5>
+          <div class="card-body table-responsive">
+            {% render_table table %}
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

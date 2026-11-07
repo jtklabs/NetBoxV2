@@ -1,0 +1,39 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Replacement Price</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Model purchased</th><td>{{ object.hardware_model|linkify }}</td></tr>
+            <tr><th>Applies to</th><td>{{ object.scope|linkify }}
+              <span class="text-muted">({% if object.site_id %}this site only{% else %}every site at or below this region{% endif %})</span></td></tr>
+            <tr><th>Cost per unit</th><td>{{ object.cost }} {{ object.currency }}</td></tr>
+            <tr><th>Price updated</th><td>{{ object.cost_updated|placeholder }}</td></tr>
+            <tr><th>Description</th><td>{{ object.description|placeholder }}</td></tr>
+          </table>
+          <div class="form-text">
+            Most specific wins: a site price beats a region price, which beats
+            the model's baseline cost.
+          </div>
+        </div>
+      </div>
+      {% include 'inc/panels/tags.html' %}
+      {% plugin_left_page object %}
+    </div>
+    <div class="col col-md-6">
+      {% include 'inc/panels/custom_fields.html' %}
+      {% include 'inc/panels/comments.html' %}
+      {% plugin_right_page object %}
+    </div>
+  </div>
+  <div class="row">
+    <div class="col col-md-12">
+      {% plugin_full_width_page object %}
+    </div>
+  </div>
+{% endblock %}

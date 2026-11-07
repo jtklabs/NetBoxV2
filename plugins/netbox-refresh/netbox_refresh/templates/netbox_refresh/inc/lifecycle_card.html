@@ -1,0 +1,38 @@
+{% load helpers %}
+{# Lifecycle summary shown on device / device-type / module / module-type pages #}
+
+<div class="card">
+  <h5 class="card-header">
+    Lifecycle
+    {% if lifecycle %}
+      <div class="card-actions">
+        <a href="{{ lifecycle.get_absolute_url }}" class="btn btn-sm btn-ghost-primary">
+          <i class="mdi mdi-chevron-right-box-outline" aria-hidden="true"></i> Details
+        </a>
+      </div>
+    {% endif %}
+  </h5>
+  {% if lifecycle %}
+    <table class="table table-hover attr-table">
+      <tr>
+        <td>Status</td>
+        <td>{% badge lifecycle.get_status_display bg_color=lifecycle.get_status_color %}</td>
+      </tr>
+      <tr><td>End of sale</td><td>{{ lifecycle.end_of_sale|placeholder }}</td></tr>
+      <tr><td>End of security support</td><td>{{ lifecycle.end_of_security_support|placeholder }}</td></tr>
+      <tr><td>End of support</td><td>{{ lifecycle.end_of_support|placeholder }}</td></tr>
+      <tr><td>Functional end of life</td><td>{{ lifecycle.effective_end_of_life|placeholder }}</td></tr>
+      <tr><td>Replacement</td><td>{{ lifecycle.replacement|linkify|placeholder }}</td></tr>
+      <tr>
+        <td>Replacement cost</td>
+        <td>
+          {% if lifecycle.replacement_cost is not None %}
+            {{ lifecycle.replacement_cost }} {{ lifecycle.currency }}
+          {% else %}{{ ''|placeholder }}{% endif %}
+        </td>
+      </tr>
+    </table>
+  {% else %}
+    <div class="card-body"><span class="text-muted">No lifecycle record for this model</span></div>
+  {% endif %}
+</div>

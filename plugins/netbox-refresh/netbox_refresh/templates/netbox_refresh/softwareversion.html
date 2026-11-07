@@ -1,0 +1,117 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% load plugins %}
+
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Version</h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Platform</th><td>{{ object.platform|linkify }}</td></tr>
+            <tr><th>Version</th><td><strong>{{ object.version }}</strong></td></tr>
+            <tr><th>Released</th><td>{{ object.release_date|placeholder }}</td></tr>
+            <tr><th>End of maintenance</th><td>{{ object.end_of_maintenance|placeholder }}</td></tr>
+            <tr><th>End of security fixes</th><td>{{ object.end_of_security_support|placeholder }}</td></tr>
+            <tr><th>End of support</th><td>{{ object.end_of_support|placeholder }}</td></tr>
+            <tr><th>Vendor notice</th><td>{{ object.lifecycle_source_url|urlize|placeholder }}</td></tr>
+            <tr><th>Devices running it</th><td>{{ object.installed_count }}</td></tr>
+            <tr><th>Description</th><td>{{ object.description|placeholder }}</td></tr>
+          </table>
+        </div>
+      </div>
+      {% include 'inc/panels/tags.html' %}
+      {% plugin_left_page object %}
+    </div>
+
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">
+          Image
+          {% if object.download_url %}
+            <div class="card-actions">
+              {# A plain link, never a fetch: the image server is http and the #}
+              {# browser only allows this as a top-level navigation.           #}
+              <a href="{{ object.download_url }}" class="btn btn-sm btn-primary">
+                <i class="mdi mdi-download" aria-hidden="true"></i> Download
+              </a>
+            </div>
+          {% endif %}
+        </h5>
+        <div class="card-body">
+          <table class="table table-hover attr-table">
+            <tr><th>Filename</th><td>{{ object.image_filename|placeholder }}</td></tr>
+            <tr><th>Size</th>
+              <td>{% if object.image_size %}{{ object.image_size|filesizeformat }}
+                  <span class="text-muted">({{ object.image_size }} bytes)</span>
+                  {% else %}{{ ''|placeholder }}{% endif %}</td></tr>
+            <tr><th>Checksum</th>
+              <td>{% if object.checksum %}
+                    {% badge object.get_checksum_type_display bg_color='gray' %}
+                    <code class="user-select-all">{{ object.checksum }}</code>
+                  {% else %}{{ ''|placeholder }}{% endif %}</td></tr>
+            <tr><th>Link</th>
+              <td>{% if object.download_url %}
+                    <a href="{{ object.download_url }}">{{ object.download_url }}</a>
+                    {% if not object.image_url %}
+                      <div class="form-text">Derived from the filename and the
+                        <code>image_base_url</code> setting</div>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-muted">No image location recorded</span>
+                  {% endif %}</td></tr>
+          </table>
+        </div>
+      </div>
+      {% include 'inc/panels/custom_fields.html' %}
+      {% include 'inc/panels/comments.html' %}
+      {% plugin_right_page object %}
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Approved By</h5>
+        <div class="card-body">
+          {% if standards %}
+            <table class="table table-hover attr-table">
+              {% for standard in standards %}
+                <tr>
+                  <td>
+                    {% for scope in standard.scope_objects %}
+                      {{ scope|linkify }}{% if not forloop.last %}, {% endif %}
+                    {% endfor %}
+                  </td>
+                  <td>{{ standard|linkify:"get_absolute_url" }}</td>
+                  <td>{% if standard.is_active %}{% badge 'In force' bg_color='green' %}
+                      {% else %}{% badge 'Historical' bg_color='gray' %}{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </table>
+          {% else %}
+            <span class="text-muted">No standard approves this version</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Running On</h5>
+        <div class="card-body">
+          {% if running_on %}
+            <ul class="list-inline">
+              {% for record in running_on %}
+                <li class="list-inline-item">{{ record.device|linkify }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <span class="text-muted">No devices are recorded as running this version</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% plugin_full_width_page object %}
+{% endblock %}

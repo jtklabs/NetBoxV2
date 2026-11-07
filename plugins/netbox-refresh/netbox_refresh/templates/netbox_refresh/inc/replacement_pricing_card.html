@@ -1,0 +1,28 @@
+{% load helpers %}
+<div class="card">
+  <h5 class="card-header">
+    Replacement Pricing
+    {% if perms.netbox_refresh.change_replacementprice %}
+      <div class="card-actions">
+        <a href="{% url 'plugins:netbox_refresh:replacementprice_worksheet' %}?device_type={{ device_type.pk }}"
+           class="btn btn-ghost-primary btn-sm">
+          <i class="mdi mdi-table-edit"></i> Worksheet
+        </a>
+      </div>
+    {% endif %}
+  </h5>
+  <div class="card-body">
+    <table class="table table-hover attr-table">
+      <tr><th>Replaces</th>
+        <td>
+          {% for feeder in feeders %}
+            <a href="{{ feeder.get_absolute_url }}">{{ feeder }}</a>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        </td></tr>
+      <tr><th>Units to replace</th><td>{{ units }} across {{ sites }} site{{ sites|pluralize }}</td></tr>
+      <tr><th>Prices recorded</th>
+        <td>{% if prices %}<a href="{% url 'plugins:netbox_refresh:replacementprice_list' %}?device_type_id={{ device_type.pk }}">{{ prices }}</a>
+            {% else %}<span class="text-muted">none — baseline costs apply</span>{% endif %}</td></tr>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,65 @@
+{% extends 'base/layout.html' %}
+{% load helpers %}
+{% load render_table from django_tables2 %}
+
+{% block title %}Software Version Rollup{% endblock %}
+
+{% block content %}
+  <div class="row mb-3">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">
+          Filter
+          <div class="card-actions">
+            <a href="{% url 'plugins:netbox_refresh:compliance_report' %}?{{ request.GET.urlencode }}"
+               class="btn btn-sm btn-ghost-primary">
+              <i class="mdi mdi-format-list-checks" aria-hidden="true"></i> Per-device report
+            </a>
+          </div>
+        </h5>
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end">
+            {% for field in form %}
+              <div class="col-md-4">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+              </div>
+            {% endfor %}
+            <div class="col-md-12">
+              <button type="submit" class="btn btn-primary">Run report</button>
+              <a href="{% url 'plugins:netbox_refresh:version_rollup' %}"
+                 class="btn btn-outline-secondary">Reset</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Distinct model / version combinations</h5>
+        <div class="card-body"><h2 class="mb-0">{{ group_count }}</h2></div>
+      </div>
+    </div>
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">Devices covered</h5>
+        <div class="card-body"><h2 class="mb-0">{{ total_devices }}</h2></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col col-md-12">
+      <div class="card">
+        <h5 class="card-header">Devices per version, largest group first</h5>
+        <div class="card-body table-responsive">
+          {% render_table table %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

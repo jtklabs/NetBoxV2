@@ -1,0 +1,37 @@
+name: NetBox image
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lifecycle plugin version is the same everywhere
+        run: |
+          project=$(sed -n 's/^version = "\(.*\)"/\1/p' plugins/netbox-refresh/pyproject.toml)
+          plugin=$(sed -n "s/^ *version = '\(.*\)'/\1/p" plugins/netbox-refresh/netbox_refresh/__init__.py)
+          compose=$(sed -n 's/^LIFECYCLE_VERSION=//p' .env.example)
+          echo "pyproject $project, PluginConfig $plugin, .env.example $compose"
+          test "$project" = "$plugin" && test "$project" = "$compose"
+      - name: Build NetBox with the Lifecycle plugin
+        run: docker build -t netbox-lifecycle:ci .
+      - name: NetBox loads the plugin and this configuration
+        # Django's system checks need no database; the values are throwaway.
+        run: |
+          docker run --rm -v "$PWD/configuration:/etc/netbox/config:ro" \
+            -e SECRET_KEY=ci-only-secret-key-ci-only-secret-key-ci-only-secret-key-0123 \
+            -e API_TOKEN_PEPPER_1=ci-only-pepper-ci-only-pepper-ci-only-pepper-0123456789abcd \
+            -e DB_HOST=127.0.0.1 -e DB_PASSWORD=ci -e REDIS_HOST=127.0.0.1 -e REDIS_CACHE_HOST=127.0.0.1 \
+            -e BASE_PATH=netbox/ \
+            --entrypoint /opt/netbox/venv/bin/python netbox-lifecycle:ci \
+            /opt/netbox/netbox/manage.py check
+      - name: Compose file and examples are valid
+        run: |
+          cp .env.example .env
+          for f in env/*.env.example; do cp "$f" "${f%.example}"; done
+          docker compose config --quiet

@@ -1,0 +1,22 @@
+{% extends 'generic/object.html' %}
+{% load helpers %}
+{% block content %}
+  <div class="row">
+    <div class="col col-md-6">
+      <div class="card">
+        <h5 class="card-header">License Assignment</h5>
+        <table class="table table-hover attr-table">
+          <tr><th>Device</th><td>{{ object.device|linkify }}</td></tr>
+          <tr><th>Entitlement</th><td>{{ object.entitlement|linkify }}</td></tr>
+          <tr><th>Assigned seats</th><td>{{ object.seats }}</td></tr>
+          <tr><th>Installed modules</th><td>{{ object.installed_modules|linebreaksbr|placeholder }}</td></tr>
+          <tr><th>Reported expiration</th><td>{{ object.reported_expiration|placeholder }}</td></tr>
+          <tr><th>Service check date</th><td>{{ object.service_check_date|placeholder }}</td></tr>
+          <tr><th>Verified</th><td>{{ object.verified_at|placeholder }}</td></tr>
+        </table>
+      </div>
+      {% include 'inc/panels/tags.html' %}
+      {% include 'inc/panels/comments.html' %}
+    </div>
+  </div>
+{% endblock %}
