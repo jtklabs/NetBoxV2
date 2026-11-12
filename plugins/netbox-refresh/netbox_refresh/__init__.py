@@ -11,7 +11,7 @@ class RefreshConfig(PluginConfig):
     name = 'netbox_refresh'
     verbose_name = 'Lifecycle'
     description = 'Hardware and software lifecycle, licenses, and support coverage'
-    version = '0.4.4'
+    version = '0.5.0'
     author = 'Nova Team'
     author_email = 'noreply@example.com'
     base_url = 'refresh'
@@ -48,6 +48,9 @@ class RefreshConfig(PluginConfig):
         # can be compliant against a six-month-old reading, and the report should
         # say so rather than render it green and confident.
         'stale_after_days': 90,
+        'readiness_stale_days': 1,
+        'renewal_notice_days': 90,
+        'action_refresh_interval_minutes': 1440,
         # Render dates in tables the way the rest of NetBox renders them, i.e.
         # honouring the locale. Off by default because it patches a NetBox
         # internal; see ready().
@@ -61,6 +64,12 @@ class RefreshConfig(PluginConfig):
         if self.default_settings and _setting_enabled('us_dates_in_tables'):
             _localise_table_dates()
         _register_eox_system_job()
+        from django.conf import settings
+        from netbox.registry import registry
+        from netbox_refresh.jobs import LifecycleActionRefreshJob
+        interval = settings.PLUGINS_CONFIG.get('netbox_refresh', {}).get('action_refresh_interval_minutes', 1440)
+        if int(interval) > 0:
+            registry['system_jobs'][LifecycleActionRefreshJob] = {'interval': int(interval)}
 
 
 def _register_eox_system_job():

@@ -50,6 +50,11 @@ __all__ = (
     'LicenseEntitlement',
     'LicenseAssignment',
     'SupportContract',
+    'DeviceCollectionState',
+    'DeviceObservation',
+    'DeviceInventoryChange',
+    'DeviceRelationship',
+    'LifecycleAction',
 )
 
 SOFTWARE_LIFECYCLE_FIELDS = (
@@ -989,3 +994,8 @@ class SupportContract(PrimaryModel):
         if self.starts_on and self.ends_on:
             return 'Active'
         return 'Dates unverified'
+
+
+from netbox_refresh.operations_models import (  # noqa: E402,F401
+    DeviceCollectionState, DeviceObservation, DeviceInventoryChange, DeviceRelationship, LifecycleAction,
+)

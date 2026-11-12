@@ -1,0 +1,23 @@
+{% extends 'base/layout.html' %}
+{% block title %}Fleet upgrade readiness{% endblock %}
+{% block content %}
+<h1>Fleet upgrade readiness</h1>
+<form class="row g-2 mb-3" method="get">
+<div class="col"><input class="form-control" name="name" placeholder="Device name" value="{{ request.GET.name }}"></div>
+<div class="col"><input class="form-control" name="site" placeholder="Site ID" value="{{ request.GET.site }}"></div>
+<div class="col"><input class="form-control" name="platform" placeholder="Platform ID" value="{{ request.GET.platform }}"></div>
+<div class="col"><input class="form-control" name="device_type" placeholder="Device type ID" value="{{ request.GET.device_type }}"></div>
+<div class="col"><input class="form-control" name="tag" placeholder="Tag slug" value="{{ request.GET.tag }}"></div>
+<div class="col"><input class="form-control" name="poller" placeholder="Poller" value="{{ request.GET.poller }}"></div>
+<div class="col"><select class="form-select" name="status"><option value="">All readiness states</option><option value="ready">Ready</option><option value="blocked">Blocked</option><option value="unknown">Unknown</option><option value="already-compliant">Already compliant</option></select></div>
+<div class="col"><button class="btn btn-primary">Filter</button></div>
+</form>
+<p>{{ count }} visible devices. Showing up to {{ limit }} from offset {{ offset }}. Readiness requires fresh evidence for each check.</p>
+<table class="table table-striped"><thead><tr><th>Device</th><th>Readiness</th><th>Compliance</th><th>Preferred software</th><th>Evidence / blockers</th></tr></thead><tbody>
+{% for row in results %}<tr><td><a href="{% url 'dcim:device' pk=row.device %}">{{ row.name }}</a></td><td>{{ row.status }}</td><td>{{ row.compliance }}</td>
+<td>{% if row.preferred_version %}{{ row.preferred_version.version }}{% if row.preferred_version.download_url %} · <a href="{{ row.preferred_version.download_url }}">Download</a>{% endif %}{% else %}—{% endif %}</td>
+<td>{% for reason in row.reasons %}<div>{{ reason }}</div>{% empty %}All required checks passed{% endfor %}</td></tr>{% empty %}<tr><td colspan="5">No visible devices</td></tr>{% endfor %}
+</tbody></table>
+{% if previous_offset != None %}<a class="btn btn-outline-primary" href="{% querystring offset=previous_offset %}">Previous</a>{% endif %}
+{% if next_offset != None %}<a class="btn btn-outline-primary" href="{% querystring offset=next_offset %}">Next</a>{% endif %}
+{% endblock %}

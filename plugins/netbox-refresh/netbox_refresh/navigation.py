@@ -63,6 +63,15 @@ version_rollup = PluginMenuItem(
 menu = PluginMenu(
     label='Lifecycle',
     groups=(
+        ('Operations', (
+            _item('devicecollectionstate', 'Collection Health', 'devicecollectionstate', add=False, import_=False),
+            _item('deviceobservation', 'Collection History', 'deviceobservation', add=False, import_=False),
+            _item('deviceinventorychange', 'Inventory Changes', 'deviceinventorychange', add=False, import_=False),
+            _item('devicerelationship', 'Neighbors and HA', 'devicerelationship', add=False, import_=False),
+            _item('lifecycleaction', 'Lifecycle Actions', 'lifecycleaction', add=False, import_=False),
+            PluginMenuItem(link='plugins:netbox_refresh:readiness_report', link_text='Upgrade Readiness',
+                permissions=['dcim.view_device', 'netbox_refresh.view_devicecollectionstate']),
+        )),
         ('Coverage', (
             _item('licenseentitlement', 'License Entitlements', 'licenseentitlement', import_=False),
             _item('licenseassignment', 'License Assignments', 'licenseassignment', import_=False),
