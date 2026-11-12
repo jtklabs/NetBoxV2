@@ -1,11 +1,13 @@
 """Ingest collection evidence and derive actionable lifecycle work."""
 
 from datetime import timedelta
+from ipaddress import ip_address
 
 from dcim.models import Device, DeviceType
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from netbox_refresh.compliance import StandardResolver
@@ -134,9 +136,18 @@ def ingest_observation(device, data):
     )
     seen = []
     for item in data.get("relationships", []):
-        peers = Device.objects.filter(
-            name__iexact=item["peer_name"], site=device.site
-        ).exclude(pk=device.pk)
+        identity_match = Q(name__iexact=item["peer_name"].rstrip("."))
+        try:
+            host = str(ip_address(item.get("peer_address") or item["peer_name"]))
+        except ValueError:
+            pass
+        else:
+            identity_match |= Q(primary_ip4__address__net_host=host) | Q(
+                primary_ip6__address__net_host=host
+            )
+        peers = Device.objects.filter(identity_match, site=device.site).exclude(
+            pk=device.pk
+        )
         peer = peers.first() if peers.count() == 1 else None
         identity = {
             key: item.get(key, "")

@@ -368,3 +368,29 @@ class OperationsTest(TestCase):
         self.assertIsNone(row["preferred_version"])
         self.assertIsNone(row["standard"])
         self.assertEqual(row["reasons"], ["Applicable standard is not visible"])
+
+    def test_ha_peer_can_resolve_by_management_address(self):
+        from dcim.models import Interface
+        from ipam.models import IPAddress
+
+        interface = Interface.objects.create(
+            device=self.peer, name="Management0", type="other"
+        )
+        address = IPAddress.objects.create(
+            address="192.0.2.2/24", assigned_object=interface
+        )
+        self.peer.primary_ip4 = address
+        self.peer.save()
+        ingest_observation(
+            self.device,
+            self.report(
+                relationships=[
+                    {
+                        "kind": "mlag",
+                        "peer_name": "192.0.2.2",
+                        "peer_address": "192.0.2.2",
+                    }
+                ]
+            ),
+        )
+        self.assertEqual(DeviceRelationship.objects.get().peer_device, self.peer)
