@@ -5,6 +5,7 @@ import json
 import django_filters
 import django_tables2 as tables
 from dcim.models import Device
+from django import forms
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db.models import Q
 from django.shortcuts import render
@@ -12,7 +13,7 @@ from django.http import HttpResponseBadRequest
 from django.urls import path
 from django.views import View
 from netbox.filtersets import NetBoxModelFilterSet
-from netbox.forms import NetBoxModelForm
+from netbox.forms import NetBoxModelForm, NetBoxModelFilterSetForm
 from netbox.tables import NetBoxTable
 from netbox.views.generic import (
     ObjectChangeLogView,
@@ -21,6 +22,7 @@ from netbox.views.generic import (
     ObjectView,
 )
 from utilities.forms.widgets import DatePicker
+from utilities.forms.fields import DynamicModelChoiceField
 from utilities.views import register_model_view
 
 from netbox_refresh.models import (
@@ -167,6 +169,26 @@ for prefix, model, fields in (
             **manual_attrs,
         },
     )
+    form_attrs = {
+        "model": model,
+        "device": DynamicModelChoiceField(
+            queryset=Device.objects.all(), required=False
+        ),
+    }
+    for field in ("poller", "status", "kind", "priority", "reminder_stage"):
+        if field in filter_fields:
+            form_attrs[field] = forms.CharField(required=False)
+    if model in (DeviceCollectionState, DeviceObservation):
+        form_attrs["manual"] = forms.NullBooleanField(
+            required=False, label="Has manually sourced fields"
+        )
+    if model is LifecycleAction:
+        form_attrs["condition_active"] = forms.NullBooleanField(
+            required=False, label="Condition still active"
+        )
+    filter_form = type(
+        f"{model.__name__}FilterForm", (NetBoxModelFilterSetForm,), form_attrs
+    )
     list_view = type(
         f"{model.__name__}List",
         (ScopedEvidence, ObjectListView),
@@ -174,6 +196,7 @@ for prefix, model, fields in (
             "queryset": model.objects.select_related("device"),
             "table": table,
             "filterset": filterset,
+            "filterset_form": filter_form,
             "actions": (),
         },
     )
