@@ -184,3 +184,73 @@ repository instead:
 5. Run `docker compose up -d` here.
 
 The database, media and Valkey volumes are reused as they are.
+
+## Collection health, readiness and lifecycle actions (Lifecycle 0.5.0)
+
+The Lifecycle menu includes Collection Health, Collection History, Inventory
+Changes, Neighbors and HA, Upgrade Readiness, and Lifecycle Actions. Device pages
+show the latest collection status, component gaps, poller/executor version,
+field provenance, recent changes, relationships and open lifecycle work.
+
+NetOps Executor 0.26.0 publishes a report after inventory synchronization at
+`POST /api/plugins/refresh/observations/report/`. Reports contain a device ID,
+job ID, poller, executor version, observation timestamp, component outcomes,
+normalized facts, field sources, readiness checks and LLDP/CDP/HA relationships.
+A repeated device/poller/job report is idempotent. Older observations are kept in
+history without overwriting the current state. Missing fields preserve earlier
+known values; only observed changes generate drift records. Raw CLI output,
+activation keys and credential fields are not accepted in collection facts.
+Full F5 keys remain in the existing license entitlement Reference field.
+
+Read-only evidence endpoints under `/api/plugins/refresh/` are
+`collection-health/`, `observations/`, `inventory-changes/`, and `relationships/`.
+Filter by `device_id` or `poller`; applicable endpoints also accept `status`,
+`kind`, `present` or `field`. `collection-health/?manual=true` and
+`observations/?manual=true` identify records with manual field sources, without
+needing a manual-data tag. A failed poll can have a manually seeded device and a
+failed collection status. Evidence requires both the device and evidence model
+to be visible to the caller.
+
+`GET /api/plugins/refresh/readiness/` returns fleet readiness, compliance,
+applicable standard, approved versions, preferred image URL/name/size/checksum,
+and check evidence. Filters include `device` (ID), `name`, `site` (ID), `platform`
+(ID), `device_type` (ID), `tag` (slug), `poller` and `status`. Pagination uses
+`offset` and `limit` (up to 500, default 100). Airgapped devices can have a target
+image while readiness and current compliance remain unknown. Readiness is
+`ready`, `blocked`, `unknown`, or `already-compliant`; it requires fresh SSH,
+credential, trust, backup, storage and HA evidence. An unsupported check stays
+unknown. This is an inventory precheck and does not replace the platform upgrade
+workflow's live validation, approval gates or maintenance planning.
+
+Lifecycle actions cover license/support renewals, hardware/software functional
+end of life, missing/conflicting standards, unknown running software and
+noncompliant software. The earliest applicable renewal/expiration date is used.
+Native NetBox Owner, status and due-date override are editable in the UI and via
+`PATCH /api/plugins/refresh/actions/<id>/`. Source dates and preferred software
+are refreshed without overwriting planning. Resolved conditions remain in history
+with `condition_active=false`; operators control their planning status.
+
+The worker schedules `Lifecycle actions and renewal reminders` daily. Reminders
+change stage at 90, 30 and 7 days, due today and overdue. Configure NetBox Event
+Rules on Lifecycle Action creation/update, filtering `condition_active=true`,
+`status` open/planned, and the desired `reminder_stage`, to deliver notifications
+or webhooks to your team. No external recipient is configured automatically.
+Unchanged actions do not emit daily duplicate update events. Administrators can
+refresh immediately with `POST /api/plugins/refresh/actions/refresh/` (optionally
+`{"device": 10}`). Source refresh has system-wide access and is restricted to
+superusers in the REST endpoint; evidence reads and action edits use normal
+object permissions.
+
+Plugin settings are `action_refresh_interval_minutes` (1440; 0 disables),
+`renewal_notice_days` (90), and `readiness_stale_days` (1). Existing hardware,
+software, license and contract records remain the authoritative sources for
+lifecycle dates. Vendor portal contract verification needs separately configured
+vendor access; on-device license collection does not assert portal verification.
+
+Executor API tokens need view/change Device and add Device Observation,
+add/change Device Collection State, add Device Inventory Change, and add/change
+Device Relationship for reporting. License synchronization also needs the
+existing license entitlement/assignment permissions. Readiness queries need view
+Device Collection State, Device Software, Software Standard and Software Version.
+Deploy the plugin before executor 0.26.0; older plugins return an explicit
+unavailable collection-report warning.

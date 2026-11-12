@@ -194,7 +194,26 @@ class DeviceCoverageCard(PluginTemplateExtension):
         )
 
 
+
+class DeviceOperationsCard(PluginTemplateExtension):
+    models = ['dcim.device']
+
+    def right_page(self):
+        from netbox_refresh.models import DeviceCollectionState, DeviceInventoryChange, DeviceRelationship, LifecycleAction
+        device = self.context['object']
+        user = self.context['request'].user
+        if not user.has_perm('netbox_refresh.view_devicecollectionstate'):
+            return ''
+        return self.render('netbox_refresh/inc/device_operations.html', extra_context={
+            'collection': DeviceCollectionState.objects.restrict(user, 'view').filter(device=device).first(),
+            'changes': DeviceInventoryChange.objects.restrict(user, 'view').filter(device=device)[:5],
+            'relationships': DeviceRelationship.objects.restrict(user, 'view').filter(device=device, present=True),
+            'actions': LifecycleAction.objects.restrict(user, 'view').filter(device=device, condition_active=True).exclude(status='closed'),
+        })
+
+
 template_extensions = (
+    DeviceOperationsCard,
     DeviceTypeLifecycleCard,
     ModuleTypeLifecycleCard,
     DeviceLifecycleCard,

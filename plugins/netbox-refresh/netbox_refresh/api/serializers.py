@@ -294,3 +294,14 @@ class SoftwareReportSerializer(serializers.Serializer):
                 'Provide either device (ID) or device_name.'
             )
         return data
+
+
+# Conventional names are used by NetBox's event pipeline and nested serialization.
+from netbox_refresh.api.operations import (  # noqa: E402
+    DeviceCollectionStateViewSet, DeviceObservationViewSet, DeviceInventoryChangeViewSet,
+    DeviceRelationshipViewSet, LifecycleActionSerializer,
+)
+DeviceCollectionStateSerializer = DeviceCollectionStateViewSet.serializer_class
+DeviceObservationSerializer = DeviceObservationViewSet.serializer_class
+DeviceInventoryChangeSerializer = DeviceInventoryChangeViewSet.serializer_class
+DeviceRelationshipSerializer = DeviceRelationshipViewSet.serializer_class

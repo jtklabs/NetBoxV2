@@ -35,3 +35,18 @@ jobs:
           cp .env.example .env
           for f in env/*.env.example; do cp "$f" "${f%.example}"; done
           docker compose config --quiet
+      - name: Test Lifecycle against NetBox 4.7
+        run: |
+          docker compose up -d --wait postgres redis redis-cache
+          docker tag netbox-lifecycle:ci netbox-lifecycle:$(sed -n 's/^NETBOX_VERSION=//p' .env)-$(sed -n 's/^LIFECYCLE_VERSION=//p' .env)
+          docker compose run --rm --no-deps \
+            -v "$PWD/plugins/netbox-refresh/netbox_refresh/tests:/opt/netbox-plugins/netbox-refresh/netbox_refresh/tests:ro" \
+            -e SECRET_KEY=ci-only-secret-key-ci-only-secret-key-ci-only-secret-key-0123 \
+            -e API_TOKEN_PEPPER_1=ci-only-pepper-ci-only-pepper-ci-only-pepper-0123456789abcd \
+            -e REMOTE_AUTH_ENABLED=false -e BASE_PATH= \
+            -e ALLOWED_HOSTS='testserver localhost 127.0.0.1' \
+            --entrypoint /opt/netbox/venv/bin/python netbox \
+            /opt/netbox/netbox/manage.py test netbox_refresh.tests --noinput
+      - name: Stop test services
+        if: always()
+        run: docker compose down -v

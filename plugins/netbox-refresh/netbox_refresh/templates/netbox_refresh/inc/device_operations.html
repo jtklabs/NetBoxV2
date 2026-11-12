@@ -1,0 +1,12 @@
+{% load helpers %}
+<div class="card"><h5 class="card-header">Collection and lifecycle actions</h5>
+<div class="card-body">
+{% if collection %}
+<p><a href="{{ collection.get_absolute_url }}">{{ collection.status|capfirst }}</a> · {{ collection.poller }} · executor {{ collection.executor_version }}<br>Last attempt {{ collection.last_attempt }} · last complete success {{ collection.last_success|default:'Unknown' }}</p>
+{% for name, component in collection.components.items %}<div><strong>{{ name|capfirst }}:</strong> {{ component.status }}{% if component.reason %} · {{ component.reason }}{% endif %}</div>{% endfor %}
+{% if collection.field_sources %}<details class="mt-2"><summary>Field provenance</summary>{% for name, source in collection.field_sources.items %}<div>{{ name }}: {{ source }}</div>{% endfor %}</details>{% endif %}
+{% else %}<p>No collection evidence yet.</p>{% endif %}
+<h6 class="mt-3">Recent changes</h6>{% for change in changes %}<div><a href="{{ change.get_absolute_url }}">{{ change.field }}</a>: {{ change.before }} → {{ change.after }} · {{ change.observed_at }}</div>{% empty %}<p>No visible changes</p>{% endfor %}
+<h6 class="mt-3">Neighbors and HA</h6>{% for rel in relationships %}<div><a href="{{ rel.get_absolute_url }}">{{ rel.kind|upper }} {{ rel.peer_name }}</a> · {{ rel.local_interface }} → {{ rel.peer_interface }} {{ rel.state }}{% if rel.confirmed %} · reciprocal{% endif %}</div>{% empty %}<p>No visible relationships</p>{% endfor %}
+<h6 class="mt-3">Actions</h6>{% for action in actions %}<div><a href="{{ action.get_absolute_url }}">{{ action.title }}</a> · {{ action.effective_due_date|default:'No due date' }} · {{ action.owner|default:'Unassigned' }}{% if action.target_version.download_url %} · <a href="{{ action.target_version.download_url }}">Preferred software</a>{% endif %}</div>{% empty %}<p>No visible open actions</p>{% endfor %}
+</div></div>

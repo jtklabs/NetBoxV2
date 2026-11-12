@@ -4,7 +4,7 @@
 # Project settings (name, image tag, published address) come from .env; NetBox,
 # PostgreSQL and Valkey settings come from env/*.env. See README.md.
 x-netbox: &netbox
-  image: netbox-lifecycle:${NETBOX_VERSION:-v4.7.4-5.1.1}-${LIFECYCLE_VERSION:-0.4.4}
+  image: netbox-lifecycle:${NETBOX_VERSION:-v4.7.4-5.1.1}-${LIFECYCLE_VERSION:-0.5.0}
   env_file: env/netbox.env
   user: "netbox:root"
   volumes:

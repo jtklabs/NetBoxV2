@@ -16,3 +16,23 @@ class CiscoEoxSyncJob(JobRunner):
             logger_fn=lambda msg: self.logger.info(msg),
         )
         return summary
+
+
+class LifecycleActionRefreshJob(JobRunner):
+    class Meta:
+        name = 'Lifecycle actions and renewal reminders'
+
+    def run(self, *args, **kwargs):
+        from netbox.context import events_queue
+        from extras.events import flush_events
+        from netbox_refresh.operations import refresh_actions
+        token = events_queue.set({})
+        try:
+            summary = refresh_actions(emit_events=True)
+            if events := list(events_queue.get().values()):
+                flush_events(events)
+        finally:
+            events_queue.reset(token)
+        self.job.data = summary
+        self.job.save(update_fields=['data'])
+        return summary
