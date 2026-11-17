@@ -29,7 +29,7 @@ in through the REST API by NetOps Executor (jtklabs/netops-executor).
 | --- | --- |
 | NetBox | 4.7.4 (`netboxcommunity/netbox:v4.7.4-5.1.1`) |
 | netbox-docker files | 5.1.1 |
-| Lifecycle (`netbox-refresh`) | 0.5.0 |
+| Lifecycle (`netbox-refresh`) | 0.5.1 |
 | PostgreSQL | 18 (`postgres:18-alpine`) |
 | Valkey | 9.1 (`valkey/valkey:9.1-alpine`) |
 
@@ -152,7 +152,8 @@ To change the plugin:
 
 1. Edit it.
 2. Bump its version in both `plugins/netbox-refresh/pyproject.toml` and
-   `netbox_refresh/__init__.py`, and update the README version table to match.
+   `netbox_refresh/__init__.py`, and update the release tag in `docker-compose.yml`
+   and the README version table to match.
 3. Run `docker compose up -d`. NetBox builds the plugin from the checkout and
    migrations run at start.
 
@@ -168,8 +169,9 @@ docker compose up -d
 ```
 
 `up` builds the web image from the current checkout. The web process and worker
-use that same project-local image and Compose replaces containers when its
-contents change. No plugin-version setting is needed in `.env`; a legacy
+use that same project-local image. Its release tag is tracked in Git, so pulling
+an upgrade changes both services' image identity and replaces the old containers.
+No plugin-version setting is needed in `.env`; a legacy
 `LIFECYCLE_VERSION` entry is ignored. Pulling Git updates the source files;
 rebuilding is what puts those files into the running containers. This does not
 fetch Git commits automatically or change the pinned base NetBox release.
