@@ -8,7 +8,7 @@
 # Changes
 
 - Lifecycle plugin changes: bump its version in both `plugins/netbox-refresh/pyproject.toml` and
-  `plugins/netbox-refresh/netbox_refresh/__init__.py`, and update `LIFECYCLE_VERSION` in `.env.example` to match.
+  `plugins/netbox-refresh/netbox_refresh/__init__.py`, and update the Lifecycle release tag in `docker-compose.yml` and the README version table to match.
 - Test against NetBox 4.7: `docker compose build && docker compose up -d`, then check the plugin's pages and API.
 - Changes to `apache/netbox.conf` or the `REMOTE_AUTH_*` settings: run `testing/apache-header-spoof/run.sh`.
 - Never commit `.env` or `env/*.env`. Only the `*.example` files hold settings, and they hold placeholders.
