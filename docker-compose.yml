@@ -1,10 +1,12 @@
 # NetBox 4.7 with the Lifecycle plugin. Based on netbox-docker 5.1.1's
 # docker-compose.yml; the NetBox image is built from ./Dockerfile.
 #
-# Project settings (name, image tag, published address) come from .env; NetBox,
+# Project settings (name, base NetBox version, published address) come from .env; NetBox,
 # PostgreSQL and Valkey settings come from env/*.env. See README.md.
 x-netbox: &netbox
-  image: netbox-lifecycle:${NETBOX_VERSION:-v4.7.4-5.1.1}-${LIFECYCLE_VERSION:-0.5.0}
+  # Web and worker share this project's locally built image. Plugin code/version
+  # comes from the checkout, never from an installation-time environment pin.
+  image: netbox-lifecycle:${COMPOSE_PROJECT_NAME:-netbox47}
   env_file: env/netbox.env
   user: "netbox:root"
   volumes:
@@ -17,6 +19,7 @@ x-netbox: &netbox
 services:
   netbox:
     <<: *netbox
+    pull_policy: build
     build:
       context: .
       args:
@@ -37,6 +40,7 @@ services:
       interval: 15s
   netbox-worker:
     <<: *netbox
+    pull_policy: never
     depends_on:
       netbox:
         condition: service_healthy

@@ -16,7 +16,7 @@ in through the REST API by NetOps Executor (jtklabs/netops-executor).
 | --- | --- |
 | `Dockerfile` | NetBox image with the Lifecycle plugin |
 | `docker-compose.yml` | NetBox, worker, PostgreSQL, two Valkey instances |
-| `.env.example` | Compose project settings: project name, image tag, published address |
+| `.env.example` | Compose project settings: project name, base NetBox release, published address |
 | `env/*.env.example` | NetBox, PostgreSQL and Valkey settings, including the SSO settings |
 | `configuration/` | netbox-docker's configuration, plus `extra.py` (`BASE_PATH`) and `plugins.py` (Lifecycle settings) |
 | `apache/netbox.conf` | Reverse-proxy include for the SSO Apache |
@@ -29,7 +29,7 @@ in through the REST API by NetOps Executor (jtklabs/netops-executor).
 | --- | --- |
 | NetBox | 4.7.4 (`netboxcommunity/netbox:v4.7.4-5.1.1`) |
 | netbox-docker files | 5.1.1 |
-| Lifecycle (`netbox-refresh`) | 0.4.4 |
+| Lifecycle (`netbox-refresh`) | 0.5.0 |
 | PostgreSQL | 18 (`postgres:18-alpine`) |
 | Valkey | 9.1 (`valkey/valkey:9.1-alpine`) |
 
@@ -152,9 +152,36 @@ To change the plugin:
 
 1. Edit it.
 2. Bump its version in both `plugins/netbox-refresh/pyproject.toml` and
-   `netbox_refresh/__init__.py`, and set `LIFECYCLE_VERSION` in `.env.example`
-   to match.
-3. Run `docker compose build && docker compose up -d`. Migrations run at start.
+   `netbox_refresh/__init__.py`, and update the README version table to match.
+3. Run `docker compose up -d`. NetBox builds the plugin from the checkout and
+   migrations run at start.
+
+### Updating Lifecycle
+
+The plugin lives in this repository at `plugins/netbox-refresh/`. Upgrade it
+from the NetBoxV2 checkout with:
+
+```bash
+git switch main
+git pull --ff-only origin main
+docker compose up -d
+```
+
+`up` builds the web image from the current checkout. The web process and worker
+use that same project-local image and Compose replaces containers when its
+contents change. No plugin-version setting is needed in `.env`; a legacy
+`LIFECYCLE_VERSION` entry is ignored. Pulling Git updates the source files;
+rebuilding is what puts those files into the running containers. This does not
+fetch Git commits automatically or change the pinned base NetBox release.
+
+To check the actual loaded plugin, rather than an image label:
+
+```bash
+docker compose exec -T netbox /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py shell -c 'from netbox_refresh import config; import netbox_refresh; print(config.version); print(netbox_refresh.__file__)'
+```
+
+The version should match this checkout and the path should be beneath
+`/opt/netbox-plugins/netbox-refresh/`.
 
 ## Upgrading NetBox
 

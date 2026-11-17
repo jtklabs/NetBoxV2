@@ -1,0 +1,20 @@
+# Probe the real image/build wiring without starting a database or migrations.
+x-probe: &probe
+  entrypoint: ["/bin/sleep"]
+  command: ["infinity"]
+  environment:
+    SECRET_KEY: image-upgrade-test-only-secret-key-image-upgrade-test-only-0123456789
+    API_TOKEN_PEPPER_1: image-upgrade-test-only-pepper-image-upgrade-test-only-0123456789
+    REMOTE_AUTH_ENABLED: "false"
+    BASE_PATH: ""
+  healthcheck:
+    test: ["CMD", "test", "-f", "/opt/netbox-plugins/netbox-refresh/netbox_refresh/__init__.py"]
+    start_period: 0s
+    interval: 1s
+    timeout: 3s
+    retries: 30
+services:
+  netbox:
+    <<: *probe
+  netbox-worker:
+    <<: *probe

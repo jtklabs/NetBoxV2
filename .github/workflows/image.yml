@@ -15,9 +15,9 @@ jobs:
         run: |
           project=$(sed -n 's/^version = "\(.*\)"/\1/p' plugins/netbox-refresh/pyproject.toml)
           plugin=$(sed -n "s/^ *version = '\(.*\)'/\1/p" plugins/netbox-refresh/netbox_refresh/__init__.py)
-          compose=$(sed -n 's/^LIFECYCLE_VERSION=//p' .env.example)
-          echo "pyproject $project, PluginConfig $plugin, .env.example $compose"
-          test "$project" = "$plugin" && test "$project" = "$compose"
+          readme=$(sed -n 's/^| Lifecycle (`netbox-refresh`) | \([^ ]*\) |$/\1/p' README.md)
+          echo "pyproject $project, PluginConfig $plugin, README $readme"
+          test "$project" = "$plugin" && test "$project" = "$readme"
       - name: Build NetBox with the Lifecycle plugin
         run: docker build -t netbox-lifecycle:ci .
       - name: NetBox loads the plugin and this configuration
@@ -38,7 +38,7 @@ jobs:
       - name: Test Lifecycle against NetBox 4.7
         run: |
           docker compose up -d --wait postgres redis redis-cache
-          docker tag netbox-lifecycle:ci netbox-lifecycle:$(sed -n 's/^NETBOX_VERSION=//p' .env)-$(sed -n 's/^LIFECYCLE_VERSION=//p' .env)
+          docker tag netbox-lifecycle:ci netbox-lifecycle:$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' .env)
           docker compose run --rm --no-deps \
             -v "$PWD/plugins/netbox-refresh/netbox_refresh/tests:/opt/netbox-plugins/netbox-refresh/netbox_refresh/tests:ro" \
             -e SECRET_KEY=ci-only-secret-key-ci-only-secret-key-ci-only-secret-key-0123 \
@@ -47,6 +47,8 @@ jobs:
             -e ALLOWED_HOSTS='testserver localhost 127.0.0.1' \
             --entrypoint /opt/netbox/venv/bin/python netbox \
             /opt/netbox/netbox/manage.py test netbox_refresh.tests --noinput
+      - name: Upgrade both services with a stale plugin version in the environment
+        run: testing/image-upgrade/run.sh
       - name: Stop test services
         if: always()
         run: docker compose down -v
